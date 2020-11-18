@@ -94,3 +94,23 @@ impl<'a> IOStore for Store<'a> {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_store() {
+        let base_dir = "tmp/ztln_test";
+        let path = Path::new(base_dir);
+        let store = Store::init(base_dir).unwrap();
+        assert!(Store::init(base_dir).is_err());
+        assert!(path.join("fields").is_dir());
+        assert!(path.join("meta").is_dir());
+        assert!(path.join("notes").is_dir());
+        assert!(path.join("fields/_CURRENT").is_file());
+        assert!(path.join("index").is_file());
+
+        fs::remove_dir_all(path).unwrap();
+    }
+}

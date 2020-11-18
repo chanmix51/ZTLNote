@@ -39,7 +39,7 @@ mod tests {
 
     #[test]
     fn create_organization() {
-        let base_dir = "ztln_orga1";
+        let base_dir = "tmp/ztln_orga1";
         let store = Store::init(base_dir);
         assert!(store.is_ok());
         let mut orga = Organization::init(store.unwrap());
@@ -47,5 +47,7 @@ mod tests {
         
         let store = Store::init(base_dir);
         assert!(store.is_err());
+
+        std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
     }
 }
