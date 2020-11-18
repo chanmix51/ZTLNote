@@ -1,6 +1,6 @@
 [package]
-name = "ztlnote"
-version = "0.1.0"
+name = "ztln"
+version = "0.1.0-dev"
 authors = ["greg"]
 edition = "2018"
 

@@ -16,7 +16,7 @@ impl ZtlnError {
 
 impl fmt::Display for ZtlnError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "NoteError → {}", self.message)
+        write!(f, "ZTLN error → {}", self.message)
     }
 }
 

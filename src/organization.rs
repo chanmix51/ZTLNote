@@ -1,12 +1,14 @@
 use crate::store::{Store, IOStore};
+use crate::error::{ZtlnError, Result};
 
+#[derive(Debug)]
 pub struct Organization<'a> {
     current_field: Option<String>,
     store: Store<'a>,
 }
 
 impl<'a> Organization<'a> {
-    pub fn init(store: Store<'a>) -> Self {
+    pub fn new(store: Store<'a>) -> Self {
         Self {
             current_field: None,
             store
@@ -27,6 +29,14 @@ impl<'a> Organization<'a> {
         (self.current_field).clone()
     }
 
+    pub fn get_current_path(&self, field: &str) -> Result<Option<String>> {
+        if self.store.field_exists(field) {
+            self.store.get_current_path(field)
+        } else {
+            Err(From::from(ZtlnError::new(format!("No such thought field '{}'.", field))))
+        }
+    }
+
     fn manage_error<T>(&self, err: Box<dyn std::error::Error>) -> T {
         eprintln!("IO ERROR: {:?}", err);
         panic!("PANIC!");
@@ -42,7 +52,7 @@ mod tests {
         let base_dir = "tmp/ztln_orga1";
         let store = Store::init(base_dir);
         assert!(store.is_ok());
-        let mut orga = Organization::init(store.unwrap());
+        let mut orga = Organization::new(store.unwrap());
         assert_eq!(None, orga.get_current_field());
         
         let store = Store::init(base_dir);

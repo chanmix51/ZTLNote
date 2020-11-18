@@ -8,13 +8,16 @@ pub trait IOStore {
     fn create_field(&self, name: &str) -> Result<()>;
     fn set_current_field(&self, field: String) -> Result<()>;
     fn get_current_field(&self) -> Result<Option<String>>;
+    fn field_exists(&self, field: &str) -> bool;
 
     fn get_paths(&self, field: &str) -> Vec<String>;
     fn create_path(&self, field: &str, path: &str) -> Result<()>;
     fn set_current_path(&self, field: &str, path: &str) -> Result<()>;
     fn get_current_path(&self, field: &str) -> Result<Option<String>>;
+    fn path_exists(&self, field: &str, path: &str) -> bool;
 }
 
+#[derive(Debug)]
 pub struct Store<'a> {
     base_dir: &'a str,
 }
@@ -79,6 +82,10 @@ impl<'a> IOStore for Store<'a> {
         Ok(())
     }
 
+    fn field_exists(&self, field: &str) -> bool {
+      self.get_basedir_pathbuf().join("fields/").join(field).exists()  
+    }
+
     fn get_paths(&self, field: &str) -> Vec<String> {
         Vec::new()
     }
@@ -93,6 +100,11 @@ impl<'a> IOStore for Store<'a> {
     fn get_current_path(&self, field: &str) -> Result<Option<String>> {
         Ok(None)
     }
+
+    fn path_exists(&self, field: &str, path: &str) -> bool {
+      self.get_basedir_pathbuf().join("fields").join(field).join("paths").join(path).exists()  
+    }
+
 }
 
 #[cfg(test)]
