@@ -1,12 +1,42 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::fmt;
 
-use crate::error::{ZtlnError, Result};
+use crate::error::Result;
 
+/**
+This kind of problems raise the impossibility to perform the task because of
+physical layer. Keep in mind that theses errors are caught and they make the
+program to *panic* so use them with care with a nice & meaningful error message.
+ */
+#[derive(Debug)]
+pub struct StoreError {
+    message: String,
+}
+
+impl StoreError {
+    pub fn new(message: String) -> Self {
+        Self { message }
+    }
+}
+
+impl fmt::Display for StoreError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "STORE I/O ERROR → {}", self.message)
+    }
+}
+
+impl std::error::Error for StoreError {}
+
+
+/**
+IOStore declares all the functions a Store needs to perform to a physical IO
+subsystem to manage the Zettenkasten organization
+ */
 pub trait IOStore {
     fn get_fields(&self) -> Vec<String>;
-    fn create_field(&self, name: &str) -> Result<()>;
-    fn set_current_field(&self, field: String) -> Result<()>;
+    fn create_field(&self, field: &str) -> Result<()>;
+    fn set_current_field(&self, field: &str) -> Result<()>;
     fn get_current_field(&self) -> Result<Option<String>>;
     fn field_exists(&self, field: &str) -> bool;
 
@@ -26,7 +56,7 @@ impl<'a> Store<'a> {
     pub fn init(base_dir: &'a str) -> Result<Self> {
         let path = Path::new(base_dir);
         if path.exists() {
-            return Err(From::from(ZtlnError::new(format!("Given directory '{}' already exists.", base_dir))));
+            return Err(From::from(StoreError::new(format!("Given directory '{}' already exists.", base_dir))));
         }
         fs::create_dir_all(base_dir)?;
         fs::create_dir(path.join("meta"))?;
@@ -41,7 +71,7 @@ impl<'a> Store<'a> {
     pub fn attach(base_dir: &'a str) -> Result<Self> {
         let path = Path::new(base_dir);
         if !path.is_dir() {
-            return Err(From::from(ZtlnError::new(format!("Given path '{}' is not a directory.", base_dir))));
+            return Err(From::from(StoreError::new(format!("Given path '{}' is not a directory.", base_dir))));
         }
 
         if !(
@@ -51,7 +81,7 @@ impl<'a> Store<'a> {
             && path.join("fields").is_dir()
             && path.join("fields/__CURRENT").is_file()
             ) {
-            return Err(From::from(ZtlnError::new(format!("Invalid ztln structure in dir '{}'.", base_dir))))
+            return Err(From::from(StoreError::new(format!("Invalid ztln structure in dir '{}'.", base_dir))))
         }
 
         Ok( Self { base_dir })
@@ -74,11 +104,18 @@ impl<'a> IOStore for Store<'a> {
         Vec::new()
     }
 
-    fn create_field(&self, name: &str) -> Result<()> {
+    fn create_field(&self, field: &str) -> Result<()> {
+        let field_path = self.get_basedir_pathbuf().join("fields").join(field);
+        fs::create_dir_all(field_path.join("paths"))?;
+        fs::write(field_path.join("HEAD"), "main")?;
+        fs::File::create(field_path.join("paths").join("main"))?;
+
         Ok(())
     }
 
-    fn set_current_field(&self, field: String) -> Result<()> {
+    fn set_current_field(&self, field: &str) -> Result<()> {
+        let file_path = self.get_basedir_pathbuf().join("fields").join("_CURRENT");
+        fs::write(file_path, field)?;
         Ok(())
     }
 
@@ -91,18 +128,23 @@ impl<'a> IOStore for Store<'a> {
     }
 
     fn create_path(&self, field: &str, path: &str) -> Result<()> {
-        Ok(())
+        Err(From::from("create_path: UNIMPLEMENTED"))
     }
 
     fn set_current_path(&self, field: &str, path: &str) -> Result<()> {
-        Ok(())
+        Err(From::from("set_current_path: UNIMPLEMENTED"))
     }
     fn get_current_path(&self, field: &str) -> Result<Option<String>> {
-        Ok(None)
+        Err(From::from("get_current_path: UNIMPLEMENTED"))
     }
 
     fn path_exists(&self, field: &str, path: &str) -> bool {
-      self.get_basedir_pathbuf().join("fields").join(field).join("paths").join(path).exists()  
+      self.get_basedir_pathbuf()
+        .join("fields")
+        .join(field)
+        .join("paths")
+        .join(path)
+        .exists()  
     }
 
 }

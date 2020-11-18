@@ -51,6 +51,7 @@ impl InfoCommand {
 }
 
 fn main() {
-    let main_opt = MainOpt::from_args();
-    let _ = main_opt.execute().unwrap_or_else(|e| { eprintln!("ERROR: {}", e); std::process::exit(1); });
+    MainOpt::from_args()
+        .execute()
+        .unwrap_or_else(|e| { eprintln!("ERROR: {}", e); std::process::exit(1); });
 }
