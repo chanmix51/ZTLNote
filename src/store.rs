@@ -97,7 +97,7 @@ impl<'a> IOStore for Store<'a> {
         let pathbuf = self.get_basedir_pathbuf().join("fields/_CURRENT");
         let current_field = fs::read_to_string(pathbuf)?;
 
-        Ok(if current_field.len() == 0 { None } else { Some(current_field) })
+        Ok(if current_field.is_empty() { None } else { Some(current_field) })
     }
 
     fn get_fields(&self) -> Vec<String> {
@@ -155,9 +155,9 @@ mod tests {
 
     #[test]
     fn test_store() {
-        let base_dir = "tmp/ztln_test";
+        let base_dir = "tmp/ztln_store1";
         let path = Path::new(base_dir);
-        let store = Store::init(base_dir).unwrap();
+        let _store = Store::init(base_dir).unwrap();
         assert!(Store::init(base_dir).is_err());
         assert!(path.join("fields").is_dir());
         assert!(path.join("meta").is_dir());
@@ -166,5 +166,30 @@ mod tests {
         assert!(path.join("index").is_file());
 
         fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn test_create_path() {
+        let base_dir = "tmp/ztln_store2";
+        let store = Store::init(base_dir).unwrap();
+        let path = Path::new(base_dir);
+        assert!(!path.join("fields").join("fieldA").exists());
+        store.create_field("fieldA").unwrap();
+        assert!(path.join("fields").join("fieldA").is_dir());
+        assert!(path.join("fields").join("fieldA").join("HEAD").is_file());
+        assert!(path.join("fields").join("fieldA").join("paths").is_dir());
+        assert!(path.join("fields").join("fieldA").join("paths").join("main").is_file());
+
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn test_set_current_field() {
+        let base_dir = "tmp/ztln_store3";
+        let mut store = Store::init(base_dir).unwrap();
+        let path = Path::new(base_dir);
+        store.create_field("fieldA").unwrap();
+        assert!(store.set_current_field("fieldA").is_ok());
+        assert_eq!("fieldA", store.get_current_field().unwrap().unwrap());
     }
 }

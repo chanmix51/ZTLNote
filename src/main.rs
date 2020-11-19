@@ -37,10 +37,10 @@ impl InfoCommand {
         let mut orga = Organization::new(Store::attach(base_dir)?);
         println!("Organization located at: {}", base_dir);
         let current_field = orga.get_current_field();
-        if current_field.is_some() {
-            let field = current_field.unwrap();
+        if let Some(field) = current_field {
+            let field = field;
             println!("Current field: {}", &field);
-            println!("Current path: {}", orga.get_current_path(&field)?.unwrap_or("None".to_string()));
+            println!("Current path: {}", orga.get_current_path(&field)?.unwrap_or_else(|| "None".to_string()));
         } else {
             println!("Current field: None");
             println!("Current path: None");
