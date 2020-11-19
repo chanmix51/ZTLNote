@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::fmt;
 use uuid::Uuid;
 
-use crate::error::Result;
+use crate::{note::NoteMetaData, error::Result};
 
 /**
 This kind of problems raise the impossibility to perform the task because of
@@ -46,6 +46,9 @@ pub trait IOStore {
     fn set_current_path(&self, field: &str, path: &str) -> Result<()>;
     fn get_current_path(&self, field: &str) -> Result<Option<String>>;
     fn path_exists(&self, field: &str, path: &str) -> bool;
+
+    fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<()>;
+    fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>>;
 }
 
 #[derive(Debug)]
@@ -155,6 +158,13 @@ impl<'a> IOStore for Store<'a> {
         .exists()  
     }
 
+    fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<()> {
+        Err(From::from("add_note: UNIMPLEMENTED"))
+    }
+
+    fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>> {
+        Err(From::from("get_note: UNIMPLEMENTED"))
+    }
 }
 
 #[cfg(test)]

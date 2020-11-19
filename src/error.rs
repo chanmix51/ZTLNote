@@ -8,6 +8,7 @@ pub enum ZtlnError {
     Default(String),
     FieldDoesNotExist(String),
     FieldAlreadyExists(String),
+    CannotParseNote,
 }
 
 impl fmt::Display for ZtlnError {
@@ -19,6 +20,8 @@ impl fmt::Display for ZtlnError {
                                 => write!(f, "→ Field '{}' does not exist", field),
             ZtlnError::FieldAlreadyExists(field)
                                 => write!(f, "→ Field '{}' does already exist", field),
+            ZtlnError::CannotParseNote
+                                => write!(f, "→ Parse error"),
         }
     }
 }
