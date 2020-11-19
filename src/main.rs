@@ -70,6 +70,7 @@ enum FieldCommand {
     #[structopt(about="create a new field")]
     Create(CreateFieldCommand), 
     List(ListFieldCommand),
+    Default(DefaultFieldCommand),
 }
 
 impl FieldCommand {
@@ -78,6 +79,7 @@ impl FieldCommand {
         match self {
             FieldCommand::Create(cmd) => cmd.execute(&mut orga),
             FieldCommand::List(cmd) => cmd.execute(&mut orga),
+            FieldCommand::Default(cmd) => cmd.execute(&mut orga),
         }
     }
 }
@@ -107,6 +109,17 @@ impl ListFieldCommand {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct DefaultFieldCommand {
+    field_name: String,
+}
+
+impl DefaultFieldCommand {
+    pub fn execute(&self, orga: &mut Organization) -> Result<()> {
+        orga.set_current_field(&self.field_name)
     }
 }
 
