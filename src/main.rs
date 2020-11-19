@@ -21,6 +21,8 @@ enum MainCommand {
     Info(InfoCommand),
     #[structopt(about="initialize a new organization")]
     Init(InitCommand),
+    #[structopt(about="manage fields")]
+    Field(FieldCommand),
 }
 
 impl MainCommand {
@@ -28,6 +30,7 @@ impl MainCommand {
         match self {
             MainCommand::Info(cmd) => cmd.execute(base_dir),
             MainCommand::Init(cmd) => cmd.execute(base_dir),
+            MainCommand::Field(cmd) => cmd.execute(base_dir),
         }
     }
 }
@@ -58,8 +61,51 @@ struct InitCommand {}
 
 impl InitCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
-        Store::init(base_dir)?;
-        println!("Ok.");
+        Store::init(base_dir).map(|_| ())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+enum FieldCommand {
+    #[structopt(about="create a new field")]
+    Create(CreateFieldCommand), 
+    List(ListFieldCommand),
+}
+
+impl FieldCommand {
+    fn execute(&self, base_dir: &str) -> Result<()> {
+        let mut orga = Organization::new(Store::attach(base_dir)?);
+        match self {
+            FieldCommand::Create(cmd) => cmd.execute(&mut orga),
+            FieldCommand::List(cmd) => cmd.execute(&mut orga),
+        }
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct CreateFieldCommand {
+    field_name: String
+}
+impl CreateFieldCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        orga.create_field(&self.field_name)
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct ListFieldCommand {}
+
+impl ListFieldCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        let list = orga.get_fields_list();
+        if list.len() == 0 {
+            println!("No fields.");
+        } else {
+            let current = orga.get_current_field().unwrap_or("".to_string());
+            for field in list {
+                println!("{} {}", if field == current { "→" } else { " " }, field);
+            }
+        }
         Ok(())
     }
 }

@@ -50,6 +50,11 @@ impl<'a> Organization<'a> {
         }
     }
 
+    pub fn get_fields_list(&self) -> Vec<String> {
+        self.store.get_fields()
+                .unwrap_or_else(|e| self.manage_store_error::<_>(e))
+    }
+
     pub fn get_current_path(&self, field: &str) -> Result<Option<String>> {
         if self.store.field_exists(field) {
             self.store.get_current_path(field)

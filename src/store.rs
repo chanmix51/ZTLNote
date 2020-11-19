@@ -34,13 +34,13 @@ IOStore declares all the functions a Store needs to perform to a physical IO
 subsystem to manage the Zettenkasten organization
  */
 pub trait IOStore {
-    fn get_fields(&self) -> Vec<String>;
+    fn get_fields(&self) -> Result<Vec<String>>;
     fn create_field(&self, field: &str) -> Result<()>;
     fn set_current_field(&self, field: &str) -> Result<()>;
     fn get_current_field(&self) -> Result<Option<String>>;
     fn field_exists(&self, field: &str) -> bool;
 
-    fn get_paths(&self, field: &str) -> Vec<String>;
+    fn get_paths(&self, field: &str) -> Result<Vec<String>>;
     fn create_path(&self, field: &str, path: &str) -> Result<()>;
     fn set_current_path(&self, field: &str, path: &str) -> Result<()>;
     fn get_current_path(&self, field: &str) -> Result<Option<String>>;
@@ -100,8 +100,18 @@ impl<'a> IOStore for Store<'a> {
         Ok(if current_field.is_empty() { None } else { Some(current_field) })
     }
 
-    fn get_fields(&self) -> Vec<String> {
-        Vec::new()
+    fn get_fields(&self) -> Result<Vec<String>> {
+        let path = self.get_basedir_pathbuf().join("fields");
+        let mut fields = Vec::new();
+
+        for entry in fs::read_dir(path)? {
+            let filename = entry?.file_name().to_str().unwrap_or("").to_string();
+            if filename != "_CURRENT" && !filename.is_empty() {
+                fields.push(filename);
+            }
+        }
+        fields.sort();
+        Ok(fields)
     }
 
     fn create_field(&self, field: &str) -> Result<()> {
@@ -123,8 +133,8 @@ impl<'a> IOStore for Store<'a> {
       self.get_basedir_pathbuf().join("fields/").join(field).exists()  
     }
 
-    fn get_paths(&self, field: &str) -> Vec<String> {
-        Vec::new()
+    fn get_paths(&self, field: &str) -> Result<Vec<String>> {
+        Ok(Vec::new())
     }
 
     fn create_path(&self, field: &str, path: &str) -> Result<()> {
@@ -187,9 +197,23 @@ mod tests {
     fn test_set_current_field() {
         let base_dir = "tmp/ztln_store3";
         let mut store = Store::init(base_dir).unwrap();
-        let path = Path::new(base_dir);
         store.create_field("fieldA").unwrap();
         assert!(store.set_current_field("fieldA").is_ok());
         assert_eq!("fieldA", store.get_current_field().unwrap().unwrap());
+
+        fs::remove_dir_all(base_dir).unwrap();
+    }
+
+    #[test]
+    fn test_get_fields() {
+        let base_dir = "tmp/ztln_store4";
+        let mut store = Store::init(base_dir).unwrap();
+        assert_eq!(0, store.get_fields().unwrap().len(), "return an empty list of fields");
+        store.create_field("fieldB").unwrap();
+        assert_eq!(vec!["fieldB"], store.get_fields().unwrap(), "one field");
+        store.create_field("fieldA").unwrap();
+        assert_eq!(vec!["fieldA", "fieldB"], store.get_fields().unwrap(), "two fields sorted by alphabetical order");
+
+        fs::remove_dir_all(base_dir).unwrap();
     }
 }
