@@ -46,6 +46,11 @@ impl<'a> Organization<'a> {
         } else {
             self.store.create_field(field)
                 .unwrap_or_else(|e| self.manage_store_error::<_>(e));
+            if self.get_current_field().is_none() {
+                self.set_current_field(field)
+                    .unwrap_or_else(|e| self.manage_store_error::<_>(e));
+                self.current_field = Some(field.to_string());
+            }
             Ok(())
         }
     }
@@ -94,7 +99,7 @@ mod tests {
 
         assert_eq!("NONE", orga.get_current_field().unwrap_or_else(|| "NONE".to_string()));
         orga.create_field("field1").unwrap();
-        assert_eq!("NONE", orga.get_current_field().unwrap_or_else(|| "NONE".to_string()));
+        assert_eq!("field1", orga.get_current_field().unwrap_or_else(|| "NONE".to_string()));
         orga.set_current_field("field1").unwrap();
         assert_eq!("field1", orga.get_current_field().unwrap_or_else(|| "NONE".to_string()));
         orga.create_field("field2").unwrap();
