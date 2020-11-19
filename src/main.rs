@@ -19,12 +19,15 @@ impl MainOpt {
 enum MainCommand {
     #[structopt(about="obtain information about an organization")]
     Info(InfoCommand),
+    #[structopt(about="initialize a new organization")]
+    Init(InitCommand),
 }
 
 impl MainCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         match self {
             MainCommand::Info(cmd) => cmd.execute(base_dir),
+            MainCommand::Init(cmd) => cmd.execute(base_dir),
         }
     }
 }
@@ -46,6 +49,17 @@ impl InfoCommand {
             println!("Current path: None");
             println!("Use `ztln field create` to create a new field.");
         }
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct InitCommand {}
+
+impl InitCommand {
+    fn execute(&self, base_dir: &str) -> Result<()> {
+        Store::init(base_dir)?;
+        println!("Ok.");
         Ok(())
     }
 }

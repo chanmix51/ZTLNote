@@ -79,7 +79,7 @@ impl<'a> Store<'a> {
             && path.join("notes").is_dir()
             && path.join("index").is_file()
             && path.join("fields").is_dir()
-            && path.join("fields/__CURRENT").is_file()
+            && path.join("fields/_CURRENT").is_file()
             ) {
             return Err(From::from(StoreError::new(format!("Invalid ztln structure in dir '{}'.", base_dir))))
         }

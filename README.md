@@ -79,8 +79,7 @@ Here are other examples of locations:
 The main file uses `StructOpt` to parse the command line arguments. Each command must be a struct testable on its own:
 
  * info: list current field/path with its date of last note creation/update
- * organization (org)
-    * init: create an Organization and initialize the Store structure on disk.
+ * init: create an Organization and initialize the Store structure on disk.
  * field
     * create: create a field (error if it already exists). This also creates the `main` path in that field (maybe a `--main-path` option may be added in the future to specify the name of that deault branch) `ztln field create field1`
     * list: list thought fields in the Organization (maybe none, error if no org could be found). `ztln field list`
