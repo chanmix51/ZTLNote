@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::fmt;
+use uuid::Uuid;
 
 use crate::error::Result;
 
@@ -41,7 +42,7 @@ pub trait IOStore {
     fn field_exists(&self, field: &str) -> bool;
 
     fn get_paths(&self, field: &str) -> Result<Vec<String>>;
-    fn create_path(&self, field: &str, path: &str) -> Result<()>;
+    fn create_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()>;
     fn set_current_path(&self, field: &str, path: &str) -> Result<()>;
     fn get_current_path(&self, field: &str) -> Result<Option<String>>;
     fn path_exists(&self, field: &str, path: &str) -> bool;
@@ -94,10 +95,8 @@ impl<'a> Store<'a> {
 
 impl<'a> IOStore for Store<'a> {
     fn get_current_field(&self) -> Result<Option<String>> {
-        let pathbuf = self.get_basedir_pathbuf().join("fields/_CURRENT");
-        let current_field = fs::read_to_string(pathbuf)?;
-
-        Ok(if current_field.is_empty() { None } else { Some(current_field) })
+        let pathbuf = self.get_basedir_pathbuf().join("_CURRENT");
+        Ok(if pathbuf.is_file() { Some(fs::read_to_string(pathbuf)?) } else { None })
     }
 
     fn get_fields(&self) -> Result<Vec<String>> {
@@ -117,14 +116,12 @@ impl<'a> IOStore for Store<'a> {
     fn create_field(&self, field: &str) -> Result<()> {
         let field_path = self.get_basedir_pathbuf().join("fields").join(field);
         fs::create_dir_all(field_path.join("paths"))?;
-        fs::write(field_path.join("HEAD"), "main")?;
-        fs::File::create(field_path.join("paths").join("main"))?;
 
         Ok(())
     }
 
     fn set_current_field(&self, field: &str) -> Result<()> {
-        let file_path = self.get_basedir_pathbuf().join("fields").join("_CURRENT");
+        let file_path = self.get_basedir_pathbuf().join("_CURRENT");
         fs::write(file_path, field)?;
         Ok(())
     }
@@ -137,13 +134,14 @@ impl<'a> IOStore for Store<'a> {
         Ok(Vec::new())
     }
 
-    fn create_path(&self, field: &str, path: &str) -> Result<()> {
-        Err(From::from("create_path: UNIMPLEMENTED"))
+    fn create_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()> {
+        Err(From::from("create_path: UNIMPLEMENTED".to_string()))
     }
 
     fn set_current_path(&self, field: &str, path: &str) -> Result<()> {
         Err(From::from("set_current_path: UNIMPLEMENTED"))
     }
+
     fn get_current_path(&self, field: &str) -> Result<Option<String>> {
         Err(From::from("get_current_path: UNIMPLEMENTED"))
     }
@@ -164,7 +162,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_store() {
+    fn init() {
         let base_dir = "tmp/ztln_store1";
         let path = Path::new(base_dir);
         let _store = Store::init(base_dir).unwrap();
@@ -172,40 +170,41 @@ mod tests {
         assert!(path.join("fields").is_dir());
         assert!(path.join("meta").is_dir());
         assert!(path.join("notes").is_dir());
-        assert!(path.join("fields/_CURRENT").is_file());
         assert!(path.join("index").is_file());
 
         fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
-    fn test_create_path() {
+    fn create_field() {
         let base_dir = "tmp/ztln_store2";
         let store = Store::init(base_dir).unwrap();
         let path = Path::new(base_dir);
         assert!(!path.join("fields").join("fieldA").exists());
         store.create_field("fieldA").unwrap();
         assert!(path.join("fields").join("fieldA").is_dir());
-        assert!(path.join("fields").join("fieldA").join("HEAD").is_file());
+        assert!(!path.join("fields").join("fieldA").join("HEAD").exists());
         assert!(path.join("fields").join("fieldA").join("paths").is_dir());
-        assert!(path.join("fields").join("fieldA").join("paths").join("main").is_file());
+        assert!(!path.join("fields").join("fieldA").join("paths").join("main").exists());
 
         fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
-    fn test_set_current_field() {
+    fn set_current_field() {
         let base_dir = "tmp/ztln_store3";
+        let pathbuf = Path::new(base_dir);
         let mut store = Store::init(base_dir).unwrap();
         store.create_field("fieldA").unwrap();
+        assert!(!pathbuf.join("_CURRENT").exists());
         assert!(store.set_current_field("fieldA").is_ok());
-        assert_eq!("fieldA", store.get_current_field().unwrap().unwrap());
+        assert_eq!(fs::read_to_string(pathbuf.join("_CURRENT")).unwrap(), "fieldA");
 
         fs::remove_dir_all(base_dir).unwrap();
     }
 
     #[test]
-    fn test_get_fields() {
+    fn get_fields() {
         let base_dir = "tmp/ztln_store4";
         let mut store = Store::init(base_dir).unwrap();
         assert_eq!(0, store.get_fields().unwrap().len(), "return an empty list of fields");
@@ -216,4 +215,19 @@ mod tests {
 
         fs::remove_dir_all(base_dir).unwrap();
     }
+
+    /*
+    #[test]
+    fn store_create_path() {
+        let base_dir = "tmp/ztln_store5";
+        let pathbuf = Path::new(base_dir);
+        let mut store = Store::init(base_dir).unwrap();
+        store.create_field("fieldA").unwrap();
+        assert!(store.create_path("fieldA", "path1").is_ok());
+        assert!(pathbuf.join("fields").join("fieldA").join("paths").join("path1").is_dir());
+        assert!(fs::read_to_string(pathbuf.join("fields").join("fieldA").join("paths").join("_HEAD")).unwrap().is_empty(), "_HEAD is empty");
+        assert!(store.create_path("fieldA", "path1").is_err());
+        assert!(store.create_path("bad", "whatever").is_err());
+    }
+    */
 }
