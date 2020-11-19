@@ -100,10 +100,10 @@ struct ListFieldCommand {}
 impl ListFieldCommand {
     fn execute(&self, orga: &mut Organization) -> Result<()> {
         let list = orga.get_fields_list();
-        if list.len() == 0 {
+        if list.is_empty() {
             println!("No fields.");
         } else {
-            let current = orga.get_current_field().unwrap_or("".to_string());
+            let current = orga.get_current_field().unwrap_or_else(|| "".to_string());
             for field in list {
                 println!("{} {}", if field == current { "→" } else { " " }, field);
             }

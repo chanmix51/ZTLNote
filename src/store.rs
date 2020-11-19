@@ -42,12 +42,13 @@ pub trait IOStore {
     fn field_exists(&self, field: &str) -> bool;
 
     fn get_paths(&self, field: &str) -> Result<Vec<String>>;
-    fn create_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()>;
+    fn get_path(&self, field: &str, path: &str) -> Result<Uuid>;
+    fn write_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()>;
+    fn path_exists(&self, field: &str, path: &str) -> bool;
     fn set_current_path(&self, field: &str, path: &str) -> Result<()>;
     fn get_current_path(&self, field: &str) -> Result<Option<String>>;
-    fn path_exists(&self, field: &str, path: &str) -> bool;
 
-    fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<()>;
+    fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>>;
 }
 
@@ -94,6 +95,20 @@ impl<'a> Store<'a> {
     fn get_basedir_pathbuf(&self) -> PathBuf {
         PathBuf::new().join(self.base_dir)
     } 
+
+    fn get_field_pathbuf(&self, field: &str) -> PathBuf {
+      self.get_basedir_pathbuf()
+        .join("fields")
+        .join(field)
+    }
+
+    fn get_path_pathbuf(&self, field: &str, path: &str) -> PathBuf {
+      self.get_basedir_pathbuf()
+        .join("fields")
+        .join(field)
+        .join("paths")
+        .join(path)
+    }
 }
 
 impl<'a> IOStore for Store<'a> {
@@ -117,8 +132,7 @@ impl<'a> IOStore for Store<'a> {
     }
 
     fn create_field(&self, field: &str) -> Result<()> {
-        let field_path = self.get_basedir_pathbuf().join("fields").join(field);
-        fs::create_dir_all(field_path.join("paths"))?;
+        fs::create_dir_all(self.get_field_pathbuf(field).join("paths"))?;
 
         Ok(())
     }
@@ -130,14 +144,18 @@ impl<'a> IOStore for Store<'a> {
     }
 
     fn field_exists(&self, field: &str) -> bool {
-      self.get_basedir_pathbuf().join("fields/").join(field).exists()  
+      self.get_field_pathbuf(field).exists()  
     }
 
     fn get_paths(&self, field: &str) -> Result<Vec<String>> {
         Ok(Vec::new())
     }
 
-    fn create_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()> {
+    fn get_path(&self, field: &str, path: &str) -> Result<Uuid> {
+        Err(From::from("get_path: UNIMPLEMENTED".to_string()))
+    }
+
+    fn write_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()> {
         Err(From::from("create_path: UNIMPLEMENTED".to_string()))
     }
 
@@ -150,16 +168,22 @@ impl<'a> IOStore for Store<'a> {
     }
 
     fn path_exists(&self, field: &str, path: &str) -> bool {
-      self.get_basedir_pathbuf()
-        .join("fields")
-        .join(field)
-        .join("paths")
-        .join(path)
-        .exists()  
+        self.get_path_pathbuf(field, path).exists()  
     }
 
-    fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<()> {
-        Err(From::from("add_note: UNIMPLEMENTED"))
+    fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<NoteMetaData> {
+        let note_id = Uuid::new_v4();
+        let note_id_str = note_id.to_string();
+        let note_target_path = self.get_basedir_pathbuf().join("notes").join(note_id_str);
+        fs::copy(filename, note_target_path)?;
+        let parent_id = self.get_path(field, path).ok();
+        self.write_path(field,path, note_id)?;
+            
+        Ok(NoteMetaData {
+            note_id,
+            parent_id,
+            references: Vec::new(),
+        })
     }
 
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>> {
@@ -204,7 +228,7 @@ mod tests {
     fn set_current_field() {
         let base_dir = "tmp/ztln_store3";
         let pathbuf = Path::new(base_dir);
-        let mut store = Store::init(base_dir).unwrap();
+        let store = Store::init(base_dir).unwrap();
         store.create_field("fieldA").unwrap();
         assert!(!pathbuf.join("_CURRENT").exists());
         assert!(store.set_current_field("fieldA").is_ok());
@@ -216,7 +240,7 @@ mod tests {
     #[test]
     fn get_fields() {
         let base_dir = "tmp/ztln_store4";
-        let mut store = Store::init(base_dir).unwrap();
+        let store = Store::init(base_dir).unwrap();
         assert_eq!(0, store.get_fields().unwrap().len(), "return an empty list of fields");
         store.create_field("fieldB").unwrap();
         assert_eq!(vec!["fieldB"], store.get_fields().unwrap(), "one field");
@@ -224,6 +248,28 @@ mod tests {
         assert_eq!(vec!["fieldA", "fieldB"], store.get_fields().unwrap(), "two fields sorted by alphabetical order");
 
         fs::remove_dir_all(base_dir).unwrap();
+    }
+
+    #[test]
+    fn add_note() {
+        let base_dir = "tmp/ztln_store5";
+        let base_dir_path = Path::new(base_dir);
+        let store = Store::init(base_dir).unwrap();
+        store.create_field("fieldA").unwrap();
+        store.set_current_field("fieldA").unwrap();
+        let draft_note_path = Path::new("tmp/test5");
+        fs::write(draft_note_path, "This is a note").unwrap();
+        let result = store.add_note("fieldA", "main", "tmp/test5");
+        assert!(result.is_ok(), "adding a note returns OK");
+        let note = result.unwrap();
+        assert!(note.parent_id.is_none(), "when a field is new, there is no parent_id");
+        assert_eq!(note.note_id.to_string(), fs::read_to_string(base_dir_path.join("fields/fieldA/paths/main")).unwrap(), "path has been updated");
+        assert!(base_dir_path.join("meta").join(note.note_id.to_string()).is_file(), "meta file exists");
+        assert_eq!("This is a note", fs::read_to_string(base_dir_path.join("notes").join(note.note_id.to_string())).unwrap(), "content file is up to date");
+        fs::write(draft_note_path, "This is another note").unwrap();
+        let another_note = store.add_note("fieldA", "main", "tmp/test5").unwrap();
+        assert_eq!(Some(note.note_id), another_note.parent_id, "new note relates to parent");
+        assert_eq!(another_note.note_id.to_string(), fs::read_to_string(base_dir_path.join("fields/fieldA/paths/main")).unwrap(), "path has been updated");
     }
 
     /*
