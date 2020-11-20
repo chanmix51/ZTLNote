@@ -49,6 +49,7 @@ pub trait IOStore {
     fn get_current_path(&self, field: &str) -> Result<Option<String>>;
 
     fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
+    fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()>;
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>>;
 }
 
@@ -68,7 +69,6 @@ impl<'a> Store<'a> {
         fs::create_dir(path.join("notes"))?;
         fs::create_dir(path.join("fields"))?;
         fs::File::create(path.join("index"))?;
-        fs::File::create(path.join("fields/_CURRENT"))?;
 
         Ok(Self { base_dir })
     }
@@ -84,7 +84,6 @@ impl<'a> Store<'a> {
             && path.join("notes").is_dir()
             && path.join("index").is_file()
             && path.join("fields").is_dir()
-            && path.join("fields/_CURRENT").is_file()
             ) {
             return Err(From::from(StoreError::new(format!("Invalid ztln structure in dir '{}'.", base_dir))))
         }
@@ -114,6 +113,7 @@ impl<'a> Store<'a> {
 impl<'a> IOStore for Store<'a> {
     fn get_current_field(&self) -> Result<Option<String>> {
         let pathbuf = self.get_basedir_pathbuf().join("_CURRENT");
+
         Ok(if pathbuf.is_file() { Some(fs::read_to_string(pathbuf)?) } else { None })
     }
 
@@ -123,11 +123,12 @@ impl<'a> IOStore for Store<'a> {
 
         for entry in fs::read_dir(path)? {
             let filename = entry?.file_name().to_str().unwrap_or("").to_string();
-            if filename != "_CURRENT" && !filename.is_empty() {
+            if !filename.is_empty() {
                 fields.push(filename);
             }
         }
         fields.sort();
+
         Ok(fields)
     }
 
@@ -140,6 +141,7 @@ impl<'a> IOStore for Store<'a> {
     fn set_current_field(&self, field: &str) -> Result<()> {
         let file_path = self.get_basedir_pathbuf().join("_CURRENT");
         fs::write(file_path, field)?;
+
         Ok(())
     }
 
@@ -152,11 +154,15 @@ impl<'a> IOStore for Store<'a> {
     }
 
     fn get_path(&self, field: &str, path: &str) -> Result<Uuid> {
-        Err(From::from("get_path: UNIMPLEMENTED".to_string()))
+        let uuid = Uuid::parse_str(fs::read_to_string(self.get_path_pathbuf(field, path))?.as_str())?;
+
+        Ok(uuid)
     }
 
     fn write_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()> {
-        Err(From::from("create_path: UNIMPLEMENTED".to_string()))
+        fs::write(self.get_path_pathbuf(field, path), uuid.to_string())?;
+        
+        Ok(())
     }
 
     fn set_current_path(&self, field: &str, path: &str) -> Result<()> {
@@ -171,19 +177,28 @@ impl<'a> IOStore for Store<'a> {
         self.get_path_pathbuf(field, path).exists()  
     }
 
+    fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()> {
+        let target_path = self.get_basedir_pathbuf().join("notes").join(note_id.to_string());
+        fs::copy(filename, target_path)?;
+
+        Ok(())
+    }
+
     fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<NoteMetaData> {
         let note_id = Uuid::new_v4();
         let note_id_str = note_id.to_string();
-        let note_target_path = self.get_basedir_pathbuf().join("notes").join(note_id_str);
-        fs::copy(filename, note_target_path)?;
+        let note_target_path = self.get_basedir_pathbuf().join("meta").join(note_id_str);
         let parent_id = self.get_path(field, path).ok();
-        self.write_path(field,path, note_id)?;
-            
-        Ok(NoteMetaData {
+        let metadata = NoteMetaData {
             note_id,
             parent_id,
             references: Vec::new(),
-        })
+        };
+        self.write_path(field,path, note_id)?;
+        fs::write(note_target_path, metadata.serialize())?;
+        self.update_note_content(filename, note_id)?;
+            
+        Ok(metadata)
     }
 
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>> {
@@ -270,6 +285,8 @@ mod tests {
         let another_note = store.add_note("fieldA", "main", "tmp/test5").unwrap();
         assert_eq!(Some(note.note_id), another_note.parent_id, "new note relates to parent");
         assert_eq!(another_note.note_id.to_string(), fs::read_to_string(base_dir_path.join("fields/fieldA/paths/main")).unwrap(), "path has been updated");
+
+        fs::remove_dir_all(base_dir).unwrap();
     }
 
     /*
