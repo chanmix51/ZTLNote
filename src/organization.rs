@@ -1,5 +1,14 @@
 use crate::store::{Store, IOStore};
 use crate::error::{ZtlnError, Result};
+use uuid::Uuid;
+
+#[derive(Debug)]
+pub struct NoteCreationReport {
+    pub note_id: Uuid,
+    pub parent_id: Option<Uuid>,
+    pub field: String,
+    pub path: String,
+}
 
 #[derive(Debug)]
 pub struct Organization<'a> {
@@ -66,6 +75,45 @@ impl<'a> Organization<'a> {
         } else {
             Err(From::from(ZtlnError::FieldDoesNotExist(field.to_string())))
         }
+    }
+
+    pub fn set_current_path(&self, field: &str, path: &str) -> Result<()> {
+        if self.store.path_exists(field, path) {
+            self.store.set_current_path(field, path)
+        } else {
+            Err(From::from(ZtlnError::PathDoesNotExist(path.to_string())))
+        }
+    }
+
+    pub fn add_note(&mut self, filename: &str, field: Option<&str>, path: Option<&str>) -> Result<NoteCreationReport> {
+        let field = match field {
+            Some(f) => {
+                if !self.store.field_exists(f) {
+                    return Err(From::from(ZtlnError::FieldDoesNotExist(f.to_string())));
+                }
+                f.to_string()
+            },
+            None => {
+                if let Some(subf) = self.get_current_field() {
+                    subf
+                } else {
+                    return Err(From::from(ZtlnError::Default("No default field".to_string())));
+                }
+            },
+        };
+        let path = match path {
+            Some(p) => p.to_string(),
+            None => match self.get_current_path(&field)? {
+                Some(p) => p.to_string(),
+                None => {
+                    self.store.set_current_path(&field, "main")?;
+                    "main".to_string()
+                }
+            }
+        };
+        let meta = self.store.add_note(&field, &path, filename)?;
+        
+        Ok(NoteCreationReport { note_id: meta.note_id, parent_id: meta.parent_id, field, path })
     }
 
     fn manage_store_error<T>(&self, err: Box<dyn std::error::Error>) -> T {

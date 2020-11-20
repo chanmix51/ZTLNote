@@ -8,6 +8,7 @@ pub enum ZtlnError {
     Default(String),
     FieldDoesNotExist(String),
     FieldAlreadyExists(String),
+    PathDoesNotExist(String),
     CannotParseNote,
 }
 
@@ -22,6 +23,8 @@ impl fmt::Display for ZtlnError {
                                 => write!(f, "→ Field '{}' does already exist", field),
             ZtlnError::CannotParseNote
                                 => write!(f, "→ Parse error"),
+            ZtlnError::PathDoesNotExist(path)
+                                => write!(f, "→ Path {} does not exist", path),
         }
     }
 }

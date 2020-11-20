@@ -23,6 +23,8 @@ enum MainCommand {
     Init(InitCommand),
     #[structopt(about="manage fields")]
     Field(FieldCommand),
+    #[structopt(about="add or update notes")]
+    Note(NoteCommand),
 }
 
 impl MainCommand {
@@ -31,6 +33,7 @@ impl MainCommand {
             MainCommand::Info(cmd) => cmd.execute(base_dir),
             MainCommand::Init(cmd) => cmd.execute(base_dir),
             MainCommand::Field(cmd) => cmd.execute(base_dir),
+            MainCommand::Note(cmd) => cmd.execute(base_dir),
         }
     }
 }
@@ -123,6 +126,38 @@ impl DefaultFieldCommand {
     }
 }
 
+#[derive(Debug, StructOpt)]
+enum NoteCommand {
+    #[structopt(about="Add a new note")]
+    Add(AddNoteCommand),
+}
+
+impl NoteCommand {
+    fn execute(&self, base_dir: &str) -> Result<()> {
+        let mut orga = Organization::new(Store::attach(base_dir)?);
+        match self {
+            NoteCommand::Add(cmd) => cmd.execute(&mut orga),
+        }
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct AddNoteCommand {
+    filename: String,
+    field: Option<String>,
+    path: Option<String>,
+}
+
+impl AddNoteCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        let r = orga.add_note(&self.filename, self.field.as_deref(), self.path.as_deref())?;
+        let note_id = r.note_id.to_string();
+        let parent_id = r.parent_id.map_or_else(|| "".to_string(), |v| v.to_string());
+        println!("Note '{}' ← '{}' added at {}/{}", parent_id, note_id, r.field, r.path);
+
+        Ok(())
+    }
+}
 fn main() {
     MainOpt::from_args()
         .execute()

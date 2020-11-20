@@ -166,11 +166,19 @@ impl<'a> IOStore for Store<'a> {
     }
 
     fn set_current_path(&self, field: &str, path: &str) -> Result<()> {
-        Err(From::from("set_current_path: UNIMPLEMENTED"))
+        let pathbuf = self.get_field_pathbuf(field).join("_HEAD");
+        fs::write(pathbuf, path)?;
+
+        Ok(())
     }
 
     fn get_current_path(&self, field: &str) -> Result<Option<String>> {
-        Err(From::from("get_current_path: UNIMPLEMENTED"))
+        let pathbuf = self.get_field_pathbuf(field).join("_HEAD");
+        if pathbuf.exists() {
+            Ok(Some(fs::read_to_string(pathbuf)?))
+        } else {
+            Ok(None)
+        }
     }
 
     fn path_exists(&self, field: &str, path: &str) -> bool {
