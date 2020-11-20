@@ -1,5 +1,9 @@
 use ztln::*;
 use structopt::StructOpt;
+use std::process::Command;
+use rand::Rng; 
+use rand::distributions::Alphanumeric;
+use std::env;
 
 #[derive(Debug, StructOpt)]
 struct MainOpt {
@@ -143,17 +147,34 @@ impl NoteCommand {
 
 #[derive(Debug, StructOpt)]
 struct AddNoteCommand {
-    filename: String,
+    filename: Option<String>,
+    #[structopt(long,short,help="set the current field prior to add the note")]
     field: Option<String>,
+    #[structopt(long,short,help="set the current path prior to add the note")]
     path: Option<String>,
 }
 
 impl AddNoteCommand {
     fn execute(&self, orga: &mut Organization) -> Result<()> {
-        let r = orga.add_note(&self.filename, self.field.as_deref(), self.path.as_deref())?;
+        let filename = match self.filename.as_ref() {
+            Some(f) => f.clone(),
+            None => {
+                let pathbuf = env::temp_dir().join(rand::thread_rng()
+                    .sample_iter(&Alphanumeric)
+                    .take(10)
+                    .collect::<String>()); 
+                let f = pathbuf.to_str().unwrap();
+                Command::new(env::var_os("EDITOR").unwrap_or_else(|| From::from("vi".to_string())))
+                    .arg(f)
+                    .status()?;
+                f.to_string()
+            }
+        };
+        let r = orga.add_note(&filename, self.field.as_deref(), self.path.as_deref())?;
         let note_id = r.note_id.to_string();
         let parent_id = r.parent_id.map_or_else(|| "".to_string(), |v| v.to_string());
         println!("Note '{}' ← '{}' added at {}/{}", parent_id, note_id, r.field, r.path);
+        std::fs::remove_file(filename)?;
 
         Ok(())
     }

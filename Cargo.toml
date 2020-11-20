@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 uuid = { version = "0.8", features = ["v4"] }
 structopt = "0.3"
-
+rand = "0.7"

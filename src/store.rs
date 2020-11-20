@@ -150,7 +150,18 @@ impl<'a> IOStore for Store<'a> {
     }
 
     fn get_paths(&self, field: &str) -> Result<Vec<String>> {
-        Ok(Vec::new())
+        let pathbuf = self.get_field_pathbuf(field).join("paths");
+        let mut paths = Vec::new();
+
+        for entry in fs::read_dir(pathbuf)? {
+            let filename = entry?.file_name().to_str().unwrap_or("").to_string();
+            if !filename.is_empty() {
+                paths.push(filename);
+            }
+        }
+        paths.sort();
+
+        Ok(paths)
     }
 
     fn get_path(&self, field: &str, path: &str) -> Result<Uuid> {
@@ -209,7 +220,7 @@ impl<'a> IOStore for Store<'a> {
         Ok(metadata)
     }
 
-    fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>> {
+    fn get_note_metadata(&self, _uuid: Uuid) -> Result<Option<NoteMetaData>> {
         Err(From::from("get_note: UNIMPLEMENTED"))
     }
 }
@@ -296,19 +307,4 @@ mod tests {
 
         fs::remove_dir_all(base_dir).unwrap();
     }
-
-    /*
-    #[test]
-    fn store_create_path() {
-        let base_dir = "tmp/ztln_store5";
-        let pathbuf = Path::new(base_dir);
-        let mut store = Store::init(base_dir).unwrap();
-        store.create_field("fieldA").unwrap();
-        assert!(store.create_path("fieldA", "path1").is_ok());
-        assert!(pathbuf.join("fields").join("fieldA").join("paths").join("path1").is_dir());
-        assert!(fs::read_to_string(pathbuf.join("fields").join("fieldA").join("paths").join("_HEAD")).unwrap().is_empty(), "_HEAD is empty");
-        assert!(store.create_path("fieldA", "path1").is_err());
-        assert!(store.create_path("bad", "whatever").is_err());
-    }
-    */
 }

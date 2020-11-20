@@ -8,23 +8,24 @@ pub enum ZtlnError {
     Default(String),
     FieldDoesNotExist(String),
     FieldAlreadyExists(String),
-    PathDoesNotExist(String),
-    CannotParseNote,
+    PathAlreadyExists(String, String),
+    PathDoesNotExist(String, String),
 }
 
 impl fmt::Display for ZtlnError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ZtlnError::Default(message)
-                                => write!(f, "→ {}", message),
             ZtlnError::FieldDoesNotExist(field)
                                 => write!(f, "→ Field '{}' does not exist", field),
             ZtlnError::FieldAlreadyExists(field)
                                 => write!(f, "→ Field '{}' does already exist", field),
-            ZtlnError::CannotParseNote
-                                => write!(f, "→ Parse error"),
-            ZtlnError::PathDoesNotExist(path)
-                                => write!(f, "→ Path {} does not exist", path),
+            ZtlnError::PathAlreadyExists(field, path)
+                                => write!(f, "→ Path '{}/{}' does already exist", field, path),
+            ZtlnError::PathDoesNotExist(field, path)
+                                => write!(f, "→ Path {}/{} does not exist", field, path),
+            ZtlnError::Default(message) 
+                                => write!(f, "→ {}", message),
+                                
         }
     }
 }
