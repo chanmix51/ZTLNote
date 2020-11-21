@@ -6,8 +6,8 @@ pub type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ZtlnError {
     Default(String),
-    FieldDoesNotExist(String),
-    FieldAlreadyExists(String),
+    TopicDoesNotExist(String),
+    TopicAlreadyExists(String),
     PathAlreadyExists(String, String),
     PathDoesNotExist(String, String),
 }
@@ -15,14 +15,14 @@ pub enum ZtlnError {
 impl fmt::Display for ZtlnError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ZtlnError::FieldDoesNotExist(field)
-                                => write!(f, "→ Field '{}' does not exist", field),
-            ZtlnError::FieldAlreadyExists(field)
-                                => write!(f, "→ Field '{}' does already exist", field),
-            ZtlnError::PathAlreadyExists(field, path)
-                                => write!(f, "→ Path '{}/{}' does already exist", field, path),
-            ZtlnError::PathDoesNotExist(field, path)
-                                => write!(f, "→ Path {}/{} does not exist", field, path),
+            ZtlnError::TopicDoesNotExist(topic)
+                                => write!(f, "→ Topic '{}' does not exist", topic),
+            ZtlnError::TopicAlreadyExists(topic)
+                                => write!(f, "→ Topic '{}' does already exist", topic),
+            ZtlnError::PathAlreadyExists(topic, path)
+                                => write!(f, "→ Path '{}/{}' does already exist", topic, path),
+            ZtlnError::PathDoesNotExist(topic, path)
+                                => write!(f, "→ Path {}/{} does not exist", topic, path),
             ZtlnError::Default(message) 
                                 => write!(f, "→ {}", message),
                                 

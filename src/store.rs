@@ -35,20 +35,20 @@ IOStore declares all the functions a Store needs to perform to a physical IO
 subsystem to manage the Zettenkasten organization
  */
 pub trait IOStore {
-    fn get_fields(&self) -> Result<Vec<String>>;
-    fn create_field(&self, field: &str) -> Result<()>;
-    fn set_current_field(&self, field: &str) -> Result<()>;
-    fn get_current_field(&self) -> Result<Option<String>>;
-    fn field_exists(&self, field: &str) -> bool;
+    fn get_topics(&self) -> Result<Vec<String>>;
+    fn create_topic(&self, topic: &str) -> Result<()>;
+    fn set_current_topic(&self, topic: &str) -> Result<()>;
+    fn get_current_topic(&self) -> Result<Option<String>>;
+    fn topic_exists(&self, topic: &str) -> bool;
 
-    fn get_paths(&self, field: &str) -> Result<Vec<String>>;
-    fn get_path(&self, field: &str, path: &str) -> Result<Uuid>;
-    fn write_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()>;
-    fn path_exists(&self, field: &str, path: &str) -> bool;
-    fn set_current_path(&self, field: &str, path: &str) -> Result<()>;
-    fn get_current_path(&self, field: &str) -> Result<Option<String>>;
+    fn get_paths(&self, topic: &str) -> Result<Vec<String>>;
+    fn get_path(&self, topic: &str, path: &str) -> Result<Uuid>;
+    fn write_path(&self, topic: &str, path: &str, uuid: Uuid) -> Result<()>;
+    fn path_exists(&self, topic: &str, path: &str) -> bool;
+    fn set_current_path(&self, topic: &str, path: &str) -> Result<()>;
+    fn get_current_path(&self, topic: &str) -> Result<Option<String>>;
 
-    fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
+    fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
     fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()>;
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>>;
 }
@@ -67,7 +67,7 @@ impl<'a> Store<'a> {
         fs::create_dir_all(base_dir)?;
         fs::create_dir(path.join("meta"))?;
         fs::create_dir(path.join("notes"))?;
-        fs::create_dir(path.join("fields"))?;
+        fs::create_dir(path.join("topics"))?;
         fs::File::create(path.join("index"))?;
 
         Ok(Self { base_dir })
@@ -83,7 +83,7 @@ impl<'a> Store<'a> {
             path.join("meta").is_dir()
             && path.join("notes").is_dir()
             && path.join("index").is_file()
-            && path.join("fields").is_dir()
+            && path.join("topics").is_dir()
             ) {
             return Err(From::from(StoreError::new(format!("Invalid ztln structure in dir '{}'.", base_dir))))
         }
@@ -95,62 +95,62 @@ impl<'a> Store<'a> {
         PathBuf::new().join(self.base_dir)
     } 
 
-    fn get_field_pathbuf(&self, field: &str) -> PathBuf {
+    fn get_topic_pathbuf(&self, topic: &str) -> PathBuf {
       self.get_basedir_pathbuf()
-        .join("fields")
-        .join(field)
+        .join("topics")
+        .join(topic)
     }
 
-    fn get_path_pathbuf(&self, field: &str, path: &str) -> PathBuf {
+    fn get_path_pathbuf(&self, topic: &str, path: &str) -> PathBuf {
       self.get_basedir_pathbuf()
-        .join("fields")
-        .join(field)
+        .join("topics")
+        .join(topic)
         .join("paths")
         .join(path)
     }
 }
 
 impl<'a> IOStore for Store<'a> {
-    fn get_current_field(&self) -> Result<Option<String>> {
+    fn get_current_topic(&self) -> Result<Option<String>> {
         let pathbuf = self.get_basedir_pathbuf().join("_CURRENT");
 
         Ok(if pathbuf.is_file() { Some(fs::read_to_string(pathbuf)?) } else { None })
     }
 
-    fn get_fields(&self) -> Result<Vec<String>> {
-        let path = self.get_basedir_pathbuf().join("fields");
-        let mut fields = Vec::new();
+    fn get_topics(&self) -> Result<Vec<String>> {
+        let path = self.get_basedir_pathbuf().join("topics");
+        let mut topics = Vec::new();
 
         for entry in fs::read_dir(path)? {
             let filename = entry?.file_name().to_str().unwrap_or("").to_string();
             if !filename.is_empty() {
-                fields.push(filename);
+                topics.push(filename);
             }
         }
-        fields.sort();
+        topics.sort();
 
-        Ok(fields)
+        Ok(topics)
     }
 
-    fn create_field(&self, field: &str) -> Result<()> {
-        fs::create_dir_all(self.get_field_pathbuf(field).join("paths"))?;
+    fn create_topic(&self, topic: &str) -> Result<()> {
+        fs::create_dir_all(self.get_topic_pathbuf(topic).join("paths"))?;
 
         Ok(())
     }
 
-    fn set_current_field(&self, field: &str) -> Result<()> {
+    fn set_current_topic(&self, topic: &str) -> Result<()> {
         let file_path = self.get_basedir_pathbuf().join("_CURRENT");
-        fs::write(file_path, field)?;
+        fs::write(file_path, topic)?;
 
         Ok(())
     }
 
-    fn field_exists(&self, field: &str) -> bool {
-      self.get_field_pathbuf(field).exists()  
+    fn topic_exists(&self, topic: &str) -> bool {
+      self.get_topic_pathbuf(topic).exists()  
     }
 
-    fn get_paths(&self, field: &str) -> Result<Vec<String>> {
-        let pathbuf = self.get_field_pathbuf(field).join("paths");
+    fn get_paths(&self, topic: &str) -> Result<Vec<String>> {
+        let pathbuf = self.get_topic_pathbuf(topic).join("paths");
         let mut paths = Vec::new();
 
         for entry in fs::read_dir(pathbuf)? {
@@ -164,27 +164,27 @@ impl<'a> IOStore for Store<'a> {
         Ok(paths)
     }
 
-    fn get_path(&self, field: &str, path: &str) -> Result<Uuid> {
-        let uuid = Uuid::parse_str(fs::read_to_string(self.get_path_pathbuf(field, path))?.as_str())?;
+    fn get_path(&self, topic: &str, path: &str) -> Result<Uuid> {
+        let uuid = Uuid::parse_str(fs::read_to_string(self.get_path_pathbuf(topic, path))?.as_str())?;
 
         Ok(uuid)
     }
 
-    fn write_path(&self, field: &str, path: &str, uuid: Uuid) -> Result<()> {
-        fs::write(self.get_path_pathbuf(field, path), uuid.to_string())?;
+    fn write_path(&self, topic: &str, path: &str, uuid: Uuid) -> Result<()> {
+        fs::write(self.get_path_pathbuf(topic, path), uuid.to_string())?;
         
         Ok(())
     }
 
-    fn set_current_path(&self, field: &str, path: &str) -> Result<()> {
-        let pathbuf = self.get_field_pathbuf(field).join("_HEAD");
+    fn set_current_path(&self, topic: &str, path: &str) -> Result<()> {
+        let pathbuf = self.get_topic_pathbuf(topic).join("_HEAD");
         fs::write(pathbuf, path)?;
 
         Ok(())
     }
 
-    fn get_current_path(&self, field: &str) -> Result<Option<String>> {
-        let pathbuf = self.get_field_pathbuf(field).join("_HEAD");
+    fn get_current_path(&self, topic: &str) -> Result<Option<String>> {
+        let pathbuf = self.get_topic_pathbuf(topic).join("_HEAD");
         if pathbuf.exists() {
             Ok(Some(fs::read_to_string(pathbuf)?))
         } else {
@@ -192,8 +192,8 @@ impl<'a> IOStore for Store<'a> {
         }
     }
 
-    fn path_exists(&self, field: &str, path: &str) -> bool {
-        self.get_path_pathbuf(field, path).exists()  
+    fn path_exists(&self, topic: &str, path: &str) -> bool {
+        self.get_path_pathbuf(topic, path).exists()  
     }
 
     fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()> {
@@ -203,17 +203,17 @@ impl<'a> IOStore for Store<'a> {
         Ok(())
     }
 
-    fn add_note(&self, field: &str, path: &str, filename: &str) -> Result<NoteMetaData> {
+    fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData> {
         let note_id = Uuid::new_v4();
         let note_id_str = note_id.to_string();
         let note_target_path = self.get_basedir_pathbuf().join("meta").join(note_id_str);
-        let parent_id = self.get_path(field, path).ok();
+        let parent_id = self.get_path(topic, path).ok();
         let metadata = NoteMetaData {
             note_id,
             parent_id,
             references: Vec::new(),
         };
-        self.write_path(field,path, note_id)?;
+        self.write_path(topic,path, note_id)?;
         fs::write(note_target_path, metadata.serialize())?;
         self.update_note_content(filename, note_id)?;
             
@@ -235,7 +235,7 @@ mod tests {
         let path = Path::new(base_dir);
         let _store = Store::init(base_dir).unwrap();
         assert!(Store::init(base_dir).is_err());
-        assert!(path.join("fields").is_dir());
+        assert!(path.join("topics").is_dir());
         assert!(path.join("meta").is_dir());
         assert!(path.join("notes").is_dir());
         assert!(path.join("index").is_file());
@@ -244,42 +244,42 @@ mod tests {
     }
 
     #[test]
-    fn create_field() {
+    fn create_topic() {
         let base_dir = "tmp/ztln_store2";
         let store = Store::init(base_dir).unwrap();
         let path = Path::new(base_dir);
-        assert!(!path.join("fields").join("fieldA").exists());
-        store.create_field("fieldA").unwrap();
-        assert!(path.join("fields").join("fieldA").is_dir());
-        assert!(!path.join("fields").join("fieldA").join("HEAD").exists());
-        assert!(path.join("fields").join("fieldA").join("paths").is_dir());
-        assert!(!path.join("fields").join("fieldA").join("paths").join("main").exists());
+        assert!(!path.join("topics").join("topicA").exists());
+        store.create_topic("topicA").unwrap();
+        assert!(path.join("topics").join("topicA").is_dir());
+        assert!(!path.join("topics").join("topicA").join("HEAD").exists());
+        assert!(path.join("topics").join("topicA").join("paths").is_dir());
+        assert!(!path.join("topics").join("topicA").join("paths").join("main").exists());
 
         fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
-    fn set_current_field() {
+    fn set_current_topic() {
         let base_dir = "tmp/ztln_store3";
         let pathbuf = Path::new(base_dir);
         let store = Store::init(base_dir).unwrap();
-        store.create_field("fieldA").unwrap();
+        store.create_topic("topicA").unwrap();
         assert!(!pathbuf.join("_CURRENT").exists());
-        assert!(store.set_current_field("fieldA").is_ok());
-        assert_eq!(fs::read_to_string(pathbuf.join("_CURRENT")).unwrap(), "fieldA");
+        assert!(store.set_current_topic("topicA").is_ok());
+        assert_eq!(fs::read_to_string(pathbuf.join("_CURRENT")).unwrap(), "topicA");
 
         fs::remove_dir_all(base_dir).unwrap();
     }
 
     #[test]
-    fn get_fields() {
+    fn get_topics() {
         let base_dir = "tmp/ztln_store4";
         let store = Store::init(base_dir).unwrap();
-        assert_eq!(0, store.get_fields().unwrap().len(), "return an empty list of fields");
-        store.create_field("fieldB").unwrap();
-        assert_eq!(vec!["fieldB"], store.get_fields().unwrap(), "one field");
-        store.create_field("fieldA").unwrap();
-        assert_eq!(vec!["fieldA", "fieldB"], store.get_fields().unwrap(), "two fields sorted by alphabetical order");
+        assert_eq!(0, store.get_topics().unwrap().len(), "return an empty list of topics");
+        store.create_topic("topicB").unwrap();
+        assert_eq!(vec!["topicB"], store.get_topics().unwrap(), "one topic");
+        store.create_topic("topicA").unwrap();
+        assert_eq!(vec!["topicA", "topicB"], store.get_topics().unwrap(), "two topics sorted by alphabetical order");
 
         fs::remove_dir_all(base_dir).unwrap();
     }
@@ -289,21 +289,21 @@ mod tests {
         let base_dir = "tmp/ztln_store5";
         let base_dir_path = Path::new(base_dir);
         let store = Store::init(base_dir).unwrap();
-        store.create_field("fieldA").unwrap();
-        store.set_current_field("fieldA").unwrap();
+        store.create_topic("topicA").unwrap();
+        store.set_current_topic("topicA").unwrap();
         let draft_note_path = Path::new("tmp/test5");
         fs::write(draft_note_path, "This is a note").unwrap();
-        let result = store.add_note("fieldA", "main", "tmp/test5");
+        let result = store.add_note("topicA", "main", "tmp/test5");
         assert!(result.is_ok(), "adding a note returns OK");
         let note = result.unwrap();
-        assert!(note.parent_id.is_none(), "when a field is new, there is no parent_id");
-        assert_eq!(note.note_id.to_string(), fs::read_to_string(base_dir_path.join("fields/fieldA/paths/main")).unwrap(), "path has been updated");
+        assert!(note.parent_id.is_none(), "when a topic is new, there is no parent_id");
+        assert_eq!(note.note_id.to_string(), fs::read_to_string(base_dir_path.join("topics/topicA/paths/main")).unwrap(), "path has been updated");
         assert!(base_dir_path.join("meta").join(note.note_id.to_string()).is_file(), "meta file exists");
         assert_eq!("This is a note", fs::read_to_string(base_dir_path.join("notes").join(note.note_id.to_string())).unwrap(), "content file is up to date");
         fs::write(draft_note_path, "This is another note").unwrap();
-        let another_note = store.add_note("fieldA", "main", "tmp/test5").unwrap();
+        let another_note = store.add_note("topicA", "main", "tmp/test5").unwrap();
         assert_eq!(Some(note.note_id), another_note.parent_id, "new note relates to parent");
-        assert_eq!(another_note.note_id.to_string(), fs::read_to_string(base_dir_path.join("fields/fieldA/paths/main")).unwrap(), "path has been updated");
+        assert_eq!(another_note.note_id.to_string(), fs::read_to_string(base_dir_path.join("topics/topicA/paths/main")).unwrap(), "path has been updated");
 
         fs::remove_dir_all(base_dir).unwrap();
     }

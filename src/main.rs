@@ -25,8 +25,8 @@ enum MainCommand {
     Info(InfoCommand),
     #[structopt(about="initialize a new organization")]
     Init(InitCommand),
-    #[structopt(about="manage fields")]
-    Field(FieldCommand),
+    #[structopt(about="manage topics")]
+    Topic(TopicCommand),
     #[structopt(about="manage paths")]
     Path(PathCommand),
     #[structopt(about="add or update notes")]
@@ -38,7 +38,7 @@ impl MainCommand {
         match self {
             MainCommand::Info(cmd) => cmd.execute(base_dir),
             MainCommand::Init(cmd) => cmd.execute(base_dir),
-            MainCommand::Field(cmd) => cmd.execute(base_dir),
+            MainCommand::Topic(cmd) => cmd.execute(base_dir),
             MainCommand::Path(cmd) => cmd.execute(base_dir),
             MainCommand::Note(cmd) => cmd.execute(base_dir),
         }
@@ -52,15 +52,15 @@ impl InfoCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         let mut orga = Organization::new(Store::attach(base_dir)?);
         println!("Organization located at: {}", base_dir);
-        let current_field = orga.get_current_field();
-        if let Some(field) = current_field {
-            let field = field;
-            println!("Current field: {}", &field);
-            println!("Current path: {}", orga.get_current_path(&field)?.unwrap_or_else(|| "None".to_string()));
+        let current_topic = orga.get_current_topic();
+        if let Some(topic) = current_topic {
+            let topic = topic;
+            println!("Current topic: {}", &topic);
+            println!("Current path: {}", orga.get_current_path(&topic)?.unwrap_or_else(|| "None".to_string()));
         } else {
-            println!("Current field: None");
+            println!("Current topic: None");
             println!("Current path: None");
-            println!("Use `ztln field create` to create a new field.");
+            println!("Use `ztln topic create` to create a new topic.");
         }
         Ok(())
     }
@@ -76,46 +76,46 @@ impl InitCommand {
 }
 
 #[derive(Debug, StructOpt)]
-enum FieldCommand {
-    #[structopt(about="create a new field")]
-    Create(CreateFieldCommand), 
-    List(ListFieldCommand),
-    Default(DefaultFieldCommand),
+enum TopicCommand {
+    #[structopt(about="create a new topic")]
+    Create(CreateTopicCommand), 
+    List(ListTopicCommand),
+    Default(DefaultTopicCommand),
 }
 
-impl FieldCommand {
+impl TopicCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         let mut orga = Organization::new(Store::attach(base_dir)?);
         match self {
-            FieldCommand::Create(cmd) => cmd.execute(&mut orga),
-            FieldCommand::List(cmd) => cmd.execute(&mut orga),
-            FieldCommand::Default(cmd) => cmd.execute(&mut orga),
+            TopicCommand::Create(cmd) => cmd.execute(&mut orga),
+            TopicCommand::List(cmd) => cmd.execute(&mut orga),
+            TopicCommand::Default(cmd) => cmd.execute(&mut orga),
         }
     }
 }
 
 #[derive(Debug, StructOpt)]
-struct CreateFieldCommand {
-    field_name: String
+struct CreateTopicCommand {
+    topic_name: String
 }
-impl CreateFieldCommand {
+impl CreateTopicCommand {
     fn execute(&self, orga: &mut Organization) -> Result<()> {
-        orga.create_field(&self.field_name)
+        orga.create_topic(&self.topic_name)
     }
 }
 
 #[derive(Debug, StructOpt)]
-struct ListFieldCommand {}
+struct ListTopicCommand {}
 
-impl ListFieldCommand {
+impl ListTopicCommand {
     fn execute(&self, orga: &mut Organization) -> Result<()> {
-        let list = orga.get_fields_list();
+        let list = orga.get_topics_list();
         if list.is_empty() {
-            println!("No fields.");
+            println!("No topics.");
         } else {
-            let current = orga.get_current_field().unwrap_or_else(|| "".to_string());
-            for field in list {
-                println!("{} {}", if field == current { "→" } else { " " }, field);
+            let current = orga.get_current_topic().unwrap_or_else(|| "".to_string());
+            for topic in list {
+                println!("{} {}", if topic == current { "→" } else { " " }, topic);
             }
         }
         Ok(())
@@ -123,26 +123,26 @@ impl ListFieldCommand {
 }
 
 #[derive(Debug, StructOpt)]
-struct DefaultFieldCommand {
-    field_name: String,
+struct DefaultTopicCommand {
+    topic_name: String,
 }
 
-impl DefaultFieldCommand {
+impl DefaultTopicCommand {
     pub fn execute(&self, orga: &mut Organization) -> Result<()> {
-        orga.set_current_field(&self.field_name)
+        orga.set_current_topic(&self.topic_name)
     }
 }
 
 #[derive(Debug, StructOpt)]
 struct PathCommand {
-    #[structopt(help="the name of the field containing the paths")]
-    field: Option<String>,
+    #[structopt(help="the name of the topic containing the paths")]
+    topic: Option<String>,
     #[structopt(subcommand)]
     subcommand: SubPathCommand,
 }
 #[derive(Debug, StructOpt)]
 enum SubPathCommand {
-    #[structopt(about="list the paths for a given field")]
+    #[structopt(about="list the paths for a given topic")]
     List(ListPathCommand),
     Create(CreatePathCommand),
 }
@@ -150,17 +150,17 @@ enum SubPathCommand {
 impl PathCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         let mut orga = Organization::new(Store::attach(base_dir)?);
-        let field = if let Some(f) = self.field.clone() {
+        let topic = if let Some(f) = self.topic.clone() {
             f
         } else {
-            orga.get_current_field()
-                .ok_or_else(|| ZtlnError::Default("No field given.".to_string()))?
+            orga.get_current_topic()
+                .ok_or_else(|| ZtlnError::Default("No topic given.".to_string()))?
         };
         match &self.subcommand {
             SubPathCommand::List(cmd)
-                => cmd.execute(&mut orga, &field),
+                => cmd.execute(&mut orga, &topic),
             SubPathCommand::Create(cmd)
-                => cmd.execute(&mut orga, &field),
+                => cmd.execute(&mut orga, &topic),
         }
     }
 }
@@ -170,12 +170,12 @@ struct ListPathCommand {
 }
 
 impl ListPathCommand {
-    fn execute(&self, orga: &mut Organization, field: &str) -> Result<()> {
-        let list = orga.get_paths_list(&field);
+    fn execute(&self, orga: &mut Organization, topic: &str) -> Result<()> {
+        let list = orga.get_paths_list(&topic);
         if list.is_empty() {
-            println!("No paths in field '{}'.", field);
+            println!("No paths in topic '{}'.", topic);
         } else {
-            let current = orga.get_current_path(&field)?.unwrap_or_else(|| "".to_string());
+            let current = orga.get_current_path(&topic)?.unwrap_or_else(|| "".to_string());
             for path in list {
                 println!("{} {}", if path == current { "→" } else { " " }, path);
             }
@@ -188,7 +188,7 @@ impl ListPathCommand {
 struct CreatePathCommand {}
 
 impl CreatePathCommand {
-    fn execute(&self, orga: &mut Organization, field: &str) -> Result<()> {
+    fn execute(&self, orga: &mut Organization, topic: &str) -> Result<()> {
         Err(From::from("CreatePathCommand::execute NOT IMPLEMENTED"))
     }
 }
@@ -211,8 +211,8 @@ impl NoteCommand {
 #[derive(Debug, StructOpt)]
 struct AddNoteCommand {
     filename: Option<String>,
-    #[structopt(long,short,help="set the current field prior to add the note")]
-    field: Option<String>,
+    #[structopt(long,short,help="set the current topic prior to add the note")]
+    topic: Option<String>,
     #[structopt(long,short,help="set the current path prior to add the note")]
     path: Option<String>,
 }
@@ -233,10 +233,10 @@ impl AddNoteCommand {
                 f.to_string()
             }
         };
-        let r = orga.add_note(&filename, self.field.as_deref(), self.path.as_deref())?;
+        let r = orga.add_note(&filename, self.topic.as_deref(), self.path.as_deref())?;
         let note_id = r.note_id.to_string();
         let parent_id = r.parent_id.map_or_else(|| "".to_string(), |v| v.to_string());
-        println!("Note '{}' ← '{}' added at {}/{}", parent_id, note_id, r.field, r.path);
+        println!("Note '{}' ← '{}' added at {}/{}", parent_id, note_id, r.topic, r.path);
         std::fs::remove_file(filename)?;
 
         Ok(())
