@@ -94,6 +94,11 @@ impl<'a> Organization<'a> {
         }
     }
 
+    pub fn get_paths_list(&self, field: &str) -> Vec<String> {
+        self.store.get_paths(field)
+                .unwrap_or_else(|e| self.manage_store_error::<_>(e))
+    }
+
     pub fn add_note(&mut self, filename: &str, field: Option<&str>, path: Option<&str>) -> Result<NoteCreationReport> {
         if let Some(f)= field {
             self.set_current_field(f)?;
@@ -122,7 +127,7 @@ impl<'a> Organization<'a> {
 
     fn manage_store_error<T>(&self, err: Box<dyn std::error::Error>) -> T {
         eprintln!("IO ERROR: {:?}", err);
-        panic!("PANIC!");
+        panic!("Crashing the application…");
     }
 }
 

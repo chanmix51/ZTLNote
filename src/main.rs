@@ -27,6 +27,8 @@ enum MainCommand {
     Init(InitCommand),
     #[structopt(about="manage fields")]
     Field(FieldCommand),
+    #[structopt(about="manage paths")]
+    Path(PathCommand),
     #[structopt(about="add or update notes")]
     Note(NoteCommand),
 }
@@ -37,6 +39,7 @@ impl MainCommand {
             MainCommand::Info(cmd) => cmd.execute(base_dir),
             MainCommand::Init(cmd) => cmd.execute(base_dir),
             MainCommand::Field(cmd) => cmd.execute(base_dir),
+            MainCommand::Path(cmd) => cmd.execute(base_dir),
             MainCommand::Note(cmd) => cmd.execute(base_dir),
         }
     }
@@ -131,6 +134,66 @@ impl DefaultFieldCommand {
 }
 
 #[derive(Debug, StructOpt)]
+struct PathCommand {
+    #[structopt(help="the name of the field containing the paths")]
+    field: Option<String>,
+    #[structopt(subcommand)]
+    subcommand: SubPathCommand,
+}
+#[derive(Debug, StructOpt)]
+enum SubPathCommand {
+    #[structopt(about="list the paths for a given field")]
+    List(ListPathCommand),
+    Create(CreatePathCommand),
+}
+
+impl PathCommand {
+    fn execute(&self, base_dir: &str) -> Result<()> {
+        let mut orga = Organization::new(Store::attach(base_dir)?);
+        let field = if let Some(f) = self.field.clone() {
+            f
+        } else {
+            orga.get_current_field()
+                .ok_or_else(|| ZtlnError::Default("No field given.".to_string()))?
+        };
+        match &self.subcommand {
+            SubPathCommand::List(cmd)
+                => cmd.execute(&mut orga, &field),
+            SubPathCommand::Create(cmd)
+                => cmd.execute(&mut orga, &field),
+        }
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct ListPathCommand {
+}
+
+impl ListPathCommand {
+    fn execute(&self, orga: &mut Organization, field: &str) -> Result<()> {
+        let list = orga.get_paths_list(&field);
+        if list.is_empty() {
+            println!("No paths in field '{}'.", field);
+        } else {
+            let current = orga.get_current_path(&field)?.unwrap_or_else(|| "".to_string());
+            for path in list {
+                println!("{} {}", if path == current { "→" } else { " " }, path);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct CreatePathCommand {}
+
+impl CreatePathCommand {
+    fn execute(&self, orga: &mut Organization, field: &str) -> Result<()> {
+        Err(From::from("CreatePathCommand::execute NOT IMPLEMENTED"))
+    }
+}
+
+#[derive(Debug, StructOpt)]
 enum NoteCommand {
     #[structopt(about="Add a new note")]
     Add(AddNoteCommand),
@@ -179,6 +242,7 @@ impl AddNoteCommand {
         Ok(())
     }
 }
+
 fn main() {
     MainOpt::from_args()
         .execute()
