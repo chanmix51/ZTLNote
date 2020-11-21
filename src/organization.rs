@@ -85,13 +85,17 @@ impl<'a> Organization<'a> {
         }
     }
 
-    pub fn create_path(&self, topic: &str, path: &str, uuid: Uuid) -> Result<()> {
-        if self.store.path_exists(topic, path) {
-            Err(From::from(ZtlnError::PathAlreadyExists(topic.to_string(), path.to_string())))
-        } else {
-            self.store.write_path(topic, path, uuid)?;
-            Ok(())
+    pub fn create_path(&self, topic: &str, new_path: &str, starting_path: &str) -> Result<()> {
+        if self.store.path_exists(topic, new_path) {
+            return Err(From::from(ZtlnError::PathAlreadyExists(topic.to_string(), new_path.to_string())))
         }
+        if !self.store.path_exists(topic, starting_path) {
+            return Err(From::from(ZtlnError::PathDoesNotExist(topic.to_string(), starting_path.to_string())));
+        }
+        let uuid = self.store.get_path(topic, starting_path)
+            .unwrap_or_else(|e| self.manage_store_error::<_>(e));
+        self.store.write_path(topic, new_path, uuid)?;
+        Ok(())
     }
 
     pub fn get_paths_list(&self, topic: &str) -> Vec<String> {
@@ -112,7 +116,7 @@ impl<'a> Organization<'a> {
                 self.set_current_path(&topic, new_path)?
             } else if let Some(curr) = self.get_current_path(&topic)? {
                 let uuid = self.store.get_path(&topic, &curr)?;
-                self.create_path(&topic, &new_path, uuid)?;
+                self.store.write_path(&topic, &new_path, uuid)?;
                 self.set_current_path(&topic, new_path)?;
             }
         } else if self.get_current_path(&topic)?.is_none() {

@@ -185,11 +185,26 @@ impl ListPathCommand {
 }
 
 #[derive(Debug, StructOpt)]
-struct CreatePathCommand {}
+struct CreatePathCommand {
+    #[structopt(help="name of the new path")]
+    new_path: String,
+    #[structopt(long, short, help="branch from this path instead of current path")]
+    path: Option<String>,
+}
 
 impl CreatePathCommand {
     fn execute(&self, orga: &mut Organization, topic: &str) -> Result<()> {
-        Err(From::from("CreatePathCommand::execute NOT IMPLEMENTED"))
+        let starting_path = match self.path.as_ref() {
+            Some(path) => path.clone(),
+            None => 
+                match orga.get_current_path(topic)? {
+                    Some(path) => path,
+                    None => return Err(From::from(ZtlnError::Default("No default branch".to_string()))),
+                }
+            };
+        orga.create_path(topic, &self.new_path, &starting_path)?;
+        
+        Ok(())
     }
 }
 
