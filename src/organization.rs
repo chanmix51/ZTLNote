@@ -77,11 +77,14 @@ impl<'a> Organization<'a> {
         }
     }
 
-    pub fn set_current_path(&self, topic: &str, path: &str) -> Result<()> {
-        if self.store.path_exists(topic, path) {
-            self.store.set_current_path(topic, path)
+    pub fn set_current_path(&mut self, topic: Option<&str>, path: &str) -> Result<()> {
+        let topic = self.unwrap_or_default_topic(topic)?;
+        if self.store.path_exists(&topic, path) {
+            self.store.set_current_path(&topic, path)
+                .unwrap_or_else(|e| self.manage_store_error::<_>(e));
+                Ok(())
         } else {
-            Err(From::from(ZtlnError::PathDoesNotExist(topic.to_string(), path.to_string())))
+            Err(From::from(ZtlnError::PathDoesNotExist(topic, path.to_string())))
         }
     }
 
@@ -129,12 +132,12 @@ impl<'a> Organization<'a> {
         if let Some(new_path) = path {
             // 1.1 does it exist?
             if self.store.path_exists(&topic, new_path) {
-                self.set_current_path(&topic, new_path)?
+                self.set_current_path(Some(&topic), new_path)?
             // 1.2 if not, if a default path exist, create a new path branching from it
             } else if let Some(curr) = self.get_current_path(&topic)? {
                 let uuid = self.store.get_path(&topic, &curr)?;
                 self.store.write_path(&topic, &new_path, uuid)?;
-                self.set_current_path(&topic, new_path)?;
+                self.set_current_path(Some(&topic), new_path)?;
             // 1.3 otherwise create a new branch from scratch
             } else {
                 self.store.set_current_path(&topic, new_path)

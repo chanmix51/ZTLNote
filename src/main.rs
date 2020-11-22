@@ -79,7 +79,9 @@ impl InitCommand {
 enum TopicCommand {
     #[structopt(about="create a new topic")]
     Create(CreateTopicCommand), 
+    #[structopt(about="list all topics")]
     List(ListTopicCommand),
+    #[structopt(about="set the default topic")]
     Default(DefaultTopicCommand),
 }
 
@@ -144,18 +146,37 @@ struct PathCommand {
 enum SubPathCommand {
     #[structopt(about="list the paths for a given topic")]
     List(ListPathCommand),
-    Create(CreatePathCommand),
+    #[structopt(about="branch a new path from either the current path or a given path")]
+    Branch(BranchPathCommand),
+    #[structopt(about="set the default path in a topic")]
+    Default(DefaultPathCommand),
 }
 
 impl PathCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         let mut orga = Organization::new(Store::attach(base_dir)?);
+        let topic = self.topic.clone();
         match &self.subcommand {
             SubPathCommand::List(cmd)
-                => cmd.execute(&mut orga, self.topic.clone()),
-            SubPathCommand::Create(cmd)
-                => cmd.execute(&mut orga, self.topic.clone()),
+                => cmd.execute(&mut orga, topic),
+            SubPathCommand::Branch(cmd)
+                => cmd.execute(&mut orga, topic),
+            SubPathCommand::Default(cmd)
+                => cmd.execute(&mut orga, topic),
         }
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct DefaultPathCommand {
+    #[structopt(about="new default path")]
+    path: String,
+}
+
+impl DefaultPathCommand {
+    fn execute(&self, orga: &mut Organization, topic: Option<String>) -> Result<()> {
+        orga.set_current_path(topic.as_deref(), &self.path)?;
+        Ok(())
     }
 }
 
@@ -179,14 +200,14 @@ impl ListPathCommand {
 }
 
 #[derive(Debug, StructOpt)]
-struct CreatePathCommand {
+struct BranchPathCommand {
     #[structopt(help="name of the new path")]
     new_path: String,
     #[structopt(long, short, help="branch from this path instead of current path")]
     path: Option<String>,
 }
 
-impl CreatePathCommand {
+impl BranchPathCommand {
     fn execute(&self, orga: &mut Organization, topic: Option<String>) -> Result<()> {
         orga.create_path(topic.as_deref(), &self.new_path, self.path.as_deref())?;
         
