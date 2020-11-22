@@ -85,22 +85,34 @@ impl<'a> Organization<'a> {
         }
     }
 
-    pub fn create_path(&self, topic: &str, new_path: &str, starting_path: &str) -> Result<()> {
-        if self.store.path_exists(topic, new_path) {
-            return Err(From::from(ZtlnError::PathAlreadyExists(topic.to_string(), new_path.to_string())))
+    pub fn create_path(&mut self, topic: Option<&str>, new_path: &str, starting_path: Option<&str>) -> Result<()> {
+        let topic = self.unwrap_or_default_topic(topic)?;
+        let starting_path = match starting_path {
+            Some(path) => path.to_string(),
+            None => 
+                match self.get_current_path(&topic)? {
+                    Some(path) => path,
+                    None => return Err(From::from(ZtlnError::Default("No default path".to_string()))),
+            }
+        };
+
+        if self.store.path_exists(&topic, new_path) {
+            return Err(From::from(ZtlnError::PathAlreadyExists(topic, new_path.to_string())))
         }
-        if !self.store.path_exists(topic, starting_path) {
-            return Err(From::from(ZtlnError::PathDoesNotExist(topic.to_string(), starting_path.to_string())));
+        if !self.store.path_exists(&topic, &starting_path) {
+            return Err(From::from(ZtlnError::PathDoesNotExist(topic, starting_path)));
         }
-        let uuid = self.store.get_path(topic, starting_path)
+        let uuid = self.store.get_path(&topic, &starting_path)
             .unwrap_or_else(|e| self.manage_store_error::<_>(e));
-        self.store.write_path(topic, new_path, uuid)?;
+        self.store.write_path(&topic, new_path, uuid)?;
         Ok(())
     }
 
-    pub fn get_paths_list(&self, topic: &str) -> Vec<String> {
-        self.store.get_paths(topic)
-                .unwrap_or_else(|e| self.manage_store_error::<_>(e))
+    pub fn get_paths_list(&mut self, topic: Option<&str>) -> Result<(String, Vec<String>)> {
+        let topic = self.unwrap_or_default_topic(topic)?;
+        let paths = self.store.get_paths(&topic)
+                .unwrap_or_else(|e| self.manage_store_error::<_>(e));
+        Ok((topic, paths))
     }
 
     pub fn add_note(&mut self, filename: &str, topic: Option<&str>, path: Option<&str>) -> Result<NoteCreationReport> {
@@ -111,14 +123,24 @@ impl<'a> Organization<'a> {
         }
         let topic = self.get_current_topic().unwrap();
 
+        // Path management is a bit complex since this may be the first note to be created in a path.
+        // In this case, there is no existing path hence one must be created and set as default.
+        // 1 is a path provided?
         if let Some(new_path) = path {
+            // 1.1 does it exist?
             if self.store.path_exists(&topic, new_path) {
                 self.set_current_path(&topic, new_path)?
+            // 1.2 if not, if a default path exist, create a new path branching from it
             } else if let Some(curr) = self.get_current_path(&topic)? {
                 let uuid = self.store.get_path(&topic, &curr)?;
                 self.store.write_path(&topic, &new_path, uuid)?;
                 self.set_current_path(&topic, new_path)?;
+            // 1.3 otherwise create a new branch from scratch
+            } else {
+                self.store.set_current_path(&topic, new_path)
+                    .unwrap_or_else(|e| self.manage_store_error(e));
             }
+        // 2 no path provided, if no default path exist, create abitrary "main"
         } else if self.get_current_path(&topic)?.is_none() {
             self.store.set_current_path(&topic, "main")
                 .unwrap_or_else(|e| self.manage_store_error(e));
@@ -132,6 +154,17 @@ impl<'a> Organization<'a> {
     fn manage_store_error<T>(&self, err: Box<dyn std::error::Error>) -> T {
         eprintln!("IO ERROR: {:?}", err);
         panic!("Crashing the application…");
+    }
+
+    fn unwrap_or_default_topic(&mut self, topic: Option<&str>) -> Result<String> {
+        let topic = if let Some(t) = topic {
+            t.to_string()
+        } else {
+            self.get_current_topic()
+                .ok_or_else(|| ZtlnError::Default("No topic given.".to_string()))?
+        };
+
+        Ok(topic)
     }
 }
 
@@ -179,7 +212,7 @@ mod tests {
         let topic = "topic1";
         let mut orga = Organization::new( Store::init(base_dir).unwrap());
         orga.create_topic(topic).unwrap();
-        std::fs::write("tmp/test3", "This is test 3 content").unwrap();
+        std::fs::write(filename, "This is test 3 content").unwrap();
         let res1 = orga.add_note(filename, None, None).unwrap();
         assert!(res1.parent_id.is_none());
         assert_eq!(topic, res1.topic);
@@ -200,6 +233,35 @@ mod tests {
         assert!(res5.parent_id.is_none());
         assert_eq!(topic, res5.topic);
         assert_eq!("main", res5.path);
+        let topic = "topic3";
+        let path = "path1";
+        orga.create_topic(topic).unwrap();
+        let res6 = orga.add_note(filename, Some(topic), Some(path));
+        assert!(res6.is_ok());
+
+        std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
+    }
+
+    #[test]
+    fn create_path() {
+        let base_dir = "tmp/ztln_orga4";
+        let filename = "tmp/test4";
+        let topic = "topic1";
+        let mut orga = Organization::new( Store::init(base_dir).unwrap());
+        let res = orga.create_path(None, "whatever", None);
+        assert!(res.is_err());
+        orga.create_topic(topic).unwrap();
+        let res = orga.create_path(Some(topic), "whatever", None);
+        assert!(res.is_err());
+        std::fs::write(filename, "This is test 4 content").unwrap();
+        let report1 = orga.add_note(filename, Some(topic), None).unwrap();
+        let res1 = orga.create_path(Some(topic), "path2", None);
+        assert!(res1.is_ok());
+        assert_eq!(2, orga.get_paths_list(Some(topic)).unwrap().1.len());
+        let report2 = orga.add_note(filename, Some(topic), Some("path2")).unwrap();
+        assert_eq!(report1.note_id, report2.parent_id.unwrap());
+        let res1 = orga.create_path(Some("wrong"),  "whatever", None);
+        assert!(res1.is_err());
 
         std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
     }

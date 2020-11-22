@@ -150,17 +150,11 @@ enum SubPathCommand {
 impl PathCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         let mut orga = Organization::new(Store::attach(base_dir)?);
-        let topic = if let Some(f) = self.topic.clone() {
-            f
-        } else {
-            orga.get_current_topic()
-                .ok_or_else(|| ZtlnError::Default("No topic given.".to_string()))?
-        };
         match &self.subcommand {
             SubPathCommand::List(cmd)
-                => cmd.execute(&mut orga, &topic),
+                => cmd.execute(&mut orga, self.topic.clone()),
             SubPathCommand::Create(cmd)
-                => cmd.execute(&mut orga, &topic),
+                => cmd.execute(&mut orga, self.topic.clone()),
         }
     }
 }
@@ -170,8 +164,8 @@ struct ListPathCommand {
 }
 
 impl ListPathCommand {
-    fn execute(&self, orga: &mut Organization, topic: &str) -> Result<()> {
-        let list = orga.get_paths_list(&topic);
+    fn execute(&self, orga: &mut Organization, topic: Option<String>) -> Result<()> {
+        let (topic, list) = orga.get_paths_list(topic.as_deref())?;
         if list.is_empty() {
             println!("No paths in topic '{}'.", topic);
         } else {
@@ -193,16 +187,8 @@ struct CreatePathCommand {
 }
 
 impl CreatePathCommand {
-    fn execute(&self, orga: &mut Organization, topic: &str) -> Result<()> {
-        let starting_path = match self.path.as_ref() {
-            Some(path) => path.clone(),
-            None => 
-                match orga.get_current_path(topic)? {
-                    Some(path) => path,
-                    None => return Err(From::from(ZtlnError::Default("No default branch".to_string()))),
-                }
-            };
-        orga.create_path(topic, &self.new_path, &starting_path)?;
+    fn execute(&self, orga: &mut Organization, topic: Option<String>) -> Result<()> {
+        orga.create_path(topic.as_deref(), &self.new_path, self.path.as_deref())?;
         
         Ok(())
     }
