@@ -1,3 +1,4 @@
+#[macro_use(lazy_static)] extern crate lazy_static;
 mod error;
 mod organization;
 mod store;

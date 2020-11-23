@@ -10,3 +10,5 @@ edition = "2018"
 uuid = { version = "0.8", features = ["v4"] }
 structopt = "0.3"
 rand = "0.7"
+regex = "1.4"
+lazy_static = "1.4"

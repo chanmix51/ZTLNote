@@ -51,6 +51,8 @@ pub trait IOStore {
     fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
     fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()>;
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>>;
+
+    fn search_short_uuid(&self, short_uuid: &str) -> Result<Option<NoteMetaData>>;
 }
 
 #[derive(Debug)]
@@ -220,8 +222,24 @@ impl<'a> IOStore for Store<'a> {
         Ok(metadata)
     }
 
-    fn get_note_metadata(&self, _uuid: Uuid) -> Result<Option<NoteMetaData>> {
-        Err(From::from("get_note: UNIMPLEMENTED"))
+    fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>> {
+        let path = self.get_basedir_pathbuf().join("meta").join(uuid.to_string());
+        if path.exists() {
+            Ok(Some(NoteMetaData::parse_meta_file(uuid, fs::read_to_string(&path)?.as_str())?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn search_short_uuid(&self, short_uuid: &str) -> Result<Option<NoteMetaData>> {
+        for entry in fs::read_dir(self.get_basedir_pathbuf().join("meta"))? {
+           let entry = entry?;
+           if &entry.file_name().to_str().unwrap()[..8] == short_uuid {
+                return Ok(self.get_note_metadata(Uuid::parse_str(entry.file_name().to_str().unwrap())?)?)
+           } 
+        }
+
+        Ok(None)
     }
 }
 

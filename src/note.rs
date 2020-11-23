@@ -8,8 +8,8 @@ pub struct NoteMetaData {
 }
 
 impl NoteMetaData {
-    pub fn parse_meta_file(filename: &str, content: &str) -> Result<Self> {
-        let note_id = Uuid::parse_str(filename)?;
+    pub fn parse_meta_file(uuid: Uuid, content: &str) -> Result<Self> {
+        let note_id = uuid;
         let mut lines = content.lines();
         let parent_id = lines.next().ok_or_else(|| ZtlnError::Default("error while parsing note meta file: could not read parent_id".to_string()))?;
         let parent_id = if !parent_id.is_empty() { Some(Uuid::parse_str(parent_id)?) } else { None };

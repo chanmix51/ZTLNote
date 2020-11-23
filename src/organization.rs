@@ -1,6 +1,7 @@
 use crate::store::{Store, IOStore};
 use crate::error::{ZtlnError, Result};
 use uuid::Uuid;
+use regex::{Regex, CaptureMatches};
 
 #[derive(Debug)]
 pub struct NoteCreationReport {
@@ -154,6 +155,59 @@ impl<'a> Organization<'a> {
         Ok(NoteCreationReport { note_id: meta.note_id, parent_id: meta.parent_id, topic, path })
     }
 
+    fn solve_location(&mut self, expr: &str) -> Result<Option<Uuid>> {
+        lazy_static! {
+            static ref RELATIVE_LOC: Regex = Regex::new(r"^(?:(?P<topic>\w+)/)?(?P<path>\w+)(?::-(?P<modifier>\d+))?$").unwrap();
+            static ref ABSOLUTE_LOC: Regex = Regex::new(r"^(?P<subuuid>[[:xdigit:]]{8})(?:(?:-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12})?$").unwrap();
+        }
+        if RELATIVE_LOC.is_match(expr) {
+            let mut captures = RELATIVE_LOC.captures_iter(expr);
+            self.solve_relative(&mut captures)
+        } else if ABSOLUTE_LOC.is_match(expr) {
+            let mut captures = ABSOLUTE_LOC.captures_iter(expr);
+            self.solve_absolute(&mut captures)
+        } else {
+            Err(From::from(ZtlnError::Default(format!("Invalid location '{}'.", expr))))
+        }
+    }
+
+    fn solve_absolute(&mut self, captures: &mut CaptureMatches) -> Result<Option<Uuid>> {
+        let cap = captures.next().unwrap();
+        let subuuid = cap.name("subuuid").unwrap().as_str().to_string();
+        let some_uuid = self.store.search_short_uuid(&subuuid)?
+            .map(|meta| meta.note_id);
+
+        Ok(some_uuid)
+    }
+    fn solve_relative(&mut self, captures: &mut CaptureMatches) -> Result<Option<Uuid>> {
+        let cap = captures.next().unwrap();
+        let path = cap.name("path").unwrap().as_str().to_string();
+        let topic = if cap.name("topic").is_none() { 
+            match self.get_current_topic() {
+                Some(t) => t,
+                None => return Err(From::from(ZtlnError::Default("No default topic and no topic specified.".to_string()))),
+            }
+        } else { cap.name("topic").unwrap().as_str().to_string() };
+        let mut some_uuid = if self.store.path_exists(&topic, &path) {
+            self.store.get_path(&topic, &path).ok()
+        } else { None };
+        let mut modifier = if cap.name("modifier").is_none() {
+            0_usize
+        } else { 
+            str::parse::<usize>(cap.name("modifier").unwrap().as_str())?
+        };
+
+        while modifier > 0 && some_uuid.is_some() {
+            some_uuid = self.store
+                .get_note_metadata(some_uuid.unwrap())?
+                .map(|meta| meta.parent_id)
+                .flatten();
+            modifier -= 1;
+        }
+
+        Ok(some_uuid)
+    }
+
     fn manage_store_error<T>(&self, err: Box<dyn std::error::Error>) -> T {
         eprintln!("IO ERROR: {:?}", err);
         panic!("Crashing the application…");
@@ -268,4 +322,65 @@ mod tests {
 
         std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
     }
+
+    #[test]
+    fn note_location_ok() {
+        let expressions:&[&str] = &[
+            "HEAD",
+            "main",
+            "whatever",
+            "topic1/main",
+            "topic1/HEAD",
+            "topic1/whatever",
+            "whatever/main",
+            "HEAD:-0",
+            "main:-2",
+            "topic1/main:-3",
+            "topic1/HEAD:-10",
+            "topic1/whatever:-1",
+            "whatever/main:-0",
+            "44a0f45f",
+            "44a0f45f-22b6-4675-a277-e196d8881ca8"
+        ];
+
+        let base_dir = "tmp/ztln_orga5";
+        let filename = "tmp/test5";
+        let topic = "topic1";
+        std::fs::write(filename, "This is test 5 content").unwrap();
+        let mut orga = Organization::new( Store::init(base_dir).unwrap());
+        orga.create_topic(topic).unwrap();
+        orga.set_current_topic(topic).unwrap();
+        orga.add_note(filename, None, None).unwrap();
+
+        for expr in expressions {
+            println!("Testing location '{}' is good…", expr);
+            assert!(orga.solve_location(expr).is_ok());
+        }
+    }
+
+    #[test]
+    fn note_location_wrong() {
+        let expressions:&[&str] = &[
+            "",
+            "tata:toto",
+            "tata:+1",
+            "44a0f45f-22b6",
+            "tata/toto/tete",
+        ];
+
+        let base_dir = "tmp/ztln_orga6";
+        let filename = "tmp/test6";
+        let topic = "topic1";
+        std::fs::write(filename, "This is test 6 content").unwrap();
+        let mut orga = Organization::new( Store::init(base_dir).unwrap());
+        orga.create_topic(topic).unwrap();
+        orga.set_current_topic(topic).unwrap();
+        orga.add_note(filename, None, None).unwrap();
+
+        for expr in expressions {
+            println!("Testing location '{}' is wrong…", expr);
+            assert!(orga.solve_location(expr).is_err());
+        }
+    }
+
 }
