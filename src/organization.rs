@@ -2,6 +2,7 @@ use crate::store::{Store, IOStore};
 use crate::error::{ZtlnError, Result};
 use crate::note::NoteMetaData;
 use regex::{Regex, CaptureMatches};
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Organization<'a> {
@@ -144,7 +145,11 @@ impl<'a> Organization<'a> {
         Ok(from_metadata)
     }
 
-    fn solve_location(&mut self, expr: &str) -> Result<Option<NoteMetaData>> {
+    pub fn get_note_content(&self, uuid: Uuid) -> Result<String> {
+       self.store.get_note_content(uuid)
+    }
+
+   pub fn solve_location(&mut self, expr: &str) -> Result<Option<NoteMetaData>> {
         lazy_static! {
             static ref RELATIVE_LOC: Regex = Regex::new(r"^(?:(?P<topic>\w+)/)?(?P<path>\w+)(?::-(?P<modifier>\d+))?$").unwrap();
             static ref ABSOLUTE_LOC: Regex = Regex::new(r"^(?P<subuuid>[[:xdigit:]]{8})(?:(?:-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12})?$").unwrap();

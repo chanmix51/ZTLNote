@@ -50,6 +50,7 @@ pub trait IOStore {
 
     fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
     fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()>;
+    fn get_note_content(&self, uuid: Uuid) -> Result<String>;
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>>;
     fn write_note_metadata(&self, meta: &NoteMetaData) -> Result<()>;
 
@@ -204,6 +205,13 @@ impl<'a> IOStore for Store<'a> {
         fs::copy(filename, target_path)?;
 
         Ok(())
+    }
+
+    fn get_note_content(&self, uuid: Uuid) -> Result<String> {
+        let pathbuf = self.get_basedir_pathbuf().join("notes").join(uuid.to_string());
+        let content =  fs::read_to_string(pathbuf)?;
+
+        Ok(content)
     }
 
     fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData> {

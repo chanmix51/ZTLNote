@@ -222,16 +222,46 @@ impl BranchPathCommand {
 enum NoteCommand {
     #[structopt(about="add a new note")]
     Add(AddNoteCommand),
+    #[structopt(about="create a reference to a note")]
     Reference(NoteReferenceCommand),
+    #[structopt(about="display a note")]
+    Show(NoteShowCommand),
 }
 
 impl NoteCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         let mut orga = Organization::new(Store::attach(base_dir)?);
         match self {
-            NoteCommand::Add(cmd) => cmd.execute(&mut orga),
-            NoteCommand::Reference(cmd) => cmd.execute(&mut orga),
+            NoteCommand::Add(cmd)
+                            => cmd.execute(&mut orga),
+            NoteCommand::Reference(cmd)
+                            => cmd.execute(&mut orga),
+            NoteCommand::Show(cmd)
+                            => cmd.execute(&mut orga),
         }
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct NoteShowCommand {
+    location: String,
+}
+
+impl NoteShowCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        let metadata = orga.solve_location(&self.location)?
+            .ok_or_else(|| ZtlnError::LocationError(self.location.to_string()))?;
+        let content = orga.get_note_content(metadata.note_id)?;
+        println!("{}", content);
+        println!("================================================================================");
+        println!("note_id:   {}", metadata.note_id);
+        println!("parent_id: {}", &metadata.parent_id.map_or("none".to_string(), |uuid| uuid.to_string()));
+        println!("references:");
+        for reference in metadata.references {
+            println!("  - {}", reference);
+        }
+
+        Ok(())
     }
 }
 
