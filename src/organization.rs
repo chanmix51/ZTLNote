@@ -133,6 +133,17 @@ impl<'a> Organization<'a> {
         Ok(NoteMetaData { note_id: meta.note_id, parent_id: meta.parent_id, topic, path, references: Vec::new() })
     }
 
+    pub fn add_note_reference(&mut self, from_location: &str, to_location: &str) -> Result<NoteMetaData> {
+        let mut from_metadata = self.solve_location(from_location)?
+            .ok_or_else(|| ZtlnError::Default(format!("Location '{}' does not exist.", from_location)))?;
+        let to_metadata = self.solve_location(to_location)?
+            .ok_or_else(|| ZtlnError::Default(format!("Location '{}' does not exist.", from_location)))?;
+        from_metadata.references.push(to_metadata.note_id);
+        self.store.write_note_metadata(&from_metadata)?;
+        
+        Ok(from_metadata)
+    }
+
     fn solve_location(&mut self, expr: &str) -> Result<Option<NoteMetaData>> {
         lazy_static! {
             static ref RELATIVE_LOC: Regex = Regex::new(r"^(?:(?P<topic>\w+)/)?(?P<path>\w+)(?::-(?P<modifier>\d+))?$").unwrap();
@@ -196,7 +207,6 @@ impl<'a> Organization<'a> {
 
         Ok(some_metadata)
     }
-
     /**
      * This method is called to crash the application when a IO error is
      * trapped. This is used only to catch error from the underlying IO
@@ -411,4 +421,25 @@ mod tests {
         assert_eq!(uuid_1, some_metadata.unwrap().note_id);
     }
 
+    #[test]
+    fn note_add_reference() {
+        let base_dir = "tmp/ztln_orga8";
+        let filename = "tmp/test8";
+        let topic = "topic1";
+        std::fs::write(filename, "This is test 8 content").unwrap();
+        let mut orga = Organization::new( Store::init(base_dir).unwrap());
+        orga.create_topic(topic).unwrap();
+        orga.set_current_topic(topic).unwrap();
+        let _meta1 = orga.add_note(filename, None, None).unwrap();
+        let _meta2 = orga.add_note(filename, None, None).unwrap();
+        orga.create_path("path1", None).unwrap();
+        let _meta3 = orga.add_note(filename, None, Some("path1")).unwrap();
+        let result = orga.add_note_reference("path1", "main");
+        if result.is_err() {
+            println!("Error: {:?}", result);
+        }
+        assert!(result.is_ok());
+        let meta = result.unwrap();
+        assert_eq!(1, meta.references.len());
+    }
 }

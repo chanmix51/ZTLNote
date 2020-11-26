@@ -51,6 +51,7 @@ pub trait IOStore {
     fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
     fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()>;
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>>;
+    fn write_note_metadata(&self, meta: &NoteMetaData) -> Result<()>;
 
     fn search_short_uuid(&self, short_uuid: &str) -> Result<Option<NoteMetaData>>;
 }
@@ -207,8 +208,6 @@ impl<'a> IOStore for Store<'a> {
 
     fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData> {
         let note_id = Uuid::new_v4();
-        let note_id_str = note_id.to_string();
-        let note_target_path = self.get_basedir_pathbuf().join("meta").join(note_id_str);
         let parent_id = self.get_path(topic, path).ok();
         let metadata = NoteMetaData {
             note_id,
@@ -218,10 +217,19 @@ impl<'a> IOStore for Store<'a> {
             path: path.to_string(),
         };
         self.write_path(topic, path, note_id)?;
-        fs::write(&note_target_path, metadata.serialize())?;
+        self.write_note_metadata(&metadata)?;
         self.update_note_content(filename, note_id)?;
             
         Ok(metadata)
+    }
+
+    fn write_note_metadata(&self, meta: &NoteMetaData) -> Result<()> {
+        let note_target_path = self.get_basedir_pathbuf()
+            .join("meta")
+            .join(meta.note_id.to_string());
+        fs::write(&note_target_path, meta.serialize())?;
+
+        Ok(())
     }
 
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>> {

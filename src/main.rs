@@ -21,15 +21,15 @@ impl MainOpt {
 
 #[derive(Debug, StructOpt)]
 enum MainCommand {
-    #[structopt(about="obtain information about an organization")]
+    #[structopt(about="Obtain information about an organization.")]
     Info(InfoCommand),
-    #[structopt(about="initialize a new organization")]
+    #[structopt(about="Initialize a new organization.")]
     Init(InitCommand),
-    #[structopt(about="manage topics")]
+    #[structopt(about="Manage topics.")]
     Topic(TopicCommand),
-    #[structopt(about="manage paths")]
+    #[structopt(about="Manage paths.")]
     Path(PathCommand),
-    #[structopt(about="add or update notes")]
+    #[structopt(about="Add or update notes.")]
     Note(NoteCommand),
 }
 
@@ -220,8 +220,9 @@ impl BranchPathCommand {
 
 #[derive(Debug, StructOpt)]
 enum NoteCommand {
-    #[structopt(about="Add a new note")]
+    #[structopt(about="add a new note")]
     Add(AddNoteCommand),
+    Reference(NoteReferenceCommand),
 }
 
 impl NoteCommand {
@@ -229,10 +230,23 @@ impl NoteCommand {
         let mut orga = Organization::new(Store::attach(base_dir)?);
         match self {
             NoteCommand::Add(cmd) => cmd.execute(&mut orga),
+            NoteCommand::Reference(cmd) => cmd.execute(&mut orga),
         }
     }
 }
 
+#[derive(Debug, StructOpt)]
+struct NoteReferenceCommand {
+    from_location: String,
+    to_location: String,
+}
+
+impl NoteReferenceCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        orga.add_note_reference(&self.from_location, &self.to_location)?;
+        Ok(())
+    }
+}
 
 #[derive(Debug, StructOpt)]
 struct AddNoteCommand {
