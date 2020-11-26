@@ -1,16 +1,7 @@
 use crate::store::{Store, IOStore};
 use crate::error::{ZtlnError, Result};
 use crate::note::NoteMetaData;
-use uuid::Uuid;
 use regex::{Regex, CaptureMatches};
-
-#[derive(Debug)]
-pub struct NoteCreationReport {
-    pub note_id: Uuid,
-    pub parent_id: Option<Uuid>,
-    pub topic: String,
-    pub path: String,
-}
 
 #[derive(Debug)]
 pub struct Organization<'a> {
@@ -106,7 +97,7 @@ impl<'a> Organization<'a> {
         Ok((topic, paths))
     }
 
-    pub fn add_note(&mut self, filename: &str, topic: Option<&str>, path: Option<&str>) -> Result<NoteCreationReport> {
+    pub fn add_note(&mut self, filename: &str, topic: Option<&str>, path: Option<&str>) -> Result<NoteMetaData> {
         if let Some(f)= topic {
             self.set_current_topic(f)?;
         } else if self.get_current_topic().is_none() {
@@ -139,7 +130,7 @@ impl<'a> Organization<'a> {
         let path = self.get_current_path(&topic)?.unwrap();
         let meta = self.store.add_note(&topic, &path, filename)?;
         
-        Ok(NoteCreationReport { note_id: meta.note_id, parent_id: meta.parent_id, topic, path })
+        Ok(NoteMetaData { note_id: meta.note_id, parent_id: meta.parent_id, topic, path, references: Vec::new() })
     }
 
     fn solve_location(&mut self, expr: &str) -> Result<Option<NoteMetaData>> {

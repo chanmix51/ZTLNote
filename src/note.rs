@@ -7,6 +7,7 @@ pub struct NoteMetaData {
     pub parent_id: Option<Uuid>,
     pub references: Vec<Uuid>,
     pub topic: String,
+    pub path: String,
 }
 
 impl NoteMetaData {
@@ -17,13 +18,17 @@ impl NoteMetaData {
         let parent_id = if !parent_id.is_empty() { Some(Uuid::parse_str(parent_id)?) } else { None };
         let topic = lines.next().ok_or_else(|| ZtlnError::ParserError("topic".to_string(), None))?.to_string();
         if topic.is_empty() {
-            return Err(From::from(ZtlnError::ParserError("topic".to_string(), Some("Field is empty".to_string()))))
+            return Err(From::from(ZtlnError::ParserError("topic".to_string(), Some("field is empty".to_string()))))
+        }
+        let path = lines.next().ok_or_else(|| ZtlnError::ParserError("path".to_string(), None))?.to_string();
+        if path.is_empty() {
+            return Err(From::from(ZtlnError::ParserError("path".to_string(), Some("field is empty".to_string()))))
         }
         let mut references = Vec::new();
         for reference in lines {
             references.push(Uuid::parse_str(reference)?);
         }
-        Ok(Self { note_id, parent_id, references, topic })
+        Ok(Self { note_id, parent_id, references, topic, path })
     }
 
     pub fn serialize(&self) -> String {
@@ -36,6 +41,8 @@ impl NoteMetaData {
             .map_or("".to_string(), |uuid| uuid.to_string());
         content.push('\n');
         content.push_str(&self.topic);
+        content.push('\n');
+        content.push_str(&self.path);
         content.push_str(&buf);
         
         content
@@ -52,8 +59,15 @@ mod tests {
         let identifier = note_id.to_string();
         let metafileok = {
             let mut f = std::collections::HashMap::new();
-            f.insert("\ntopic".to_string(), NoteMetaData { note_id, parent_id: None, topic: "topic".to_string(), references: Vec::new() });
-            f.insert(format!("{}\ntopic", identifier), NoteMetaData { note_id, parent_id: Some(note_id), topic: "topic".to_string(), references: Vec::new() });
+            f.insert(
+                "\ntopic\nmain".to_string(),
+                NoteMetaData { note_id, parent_id: None, topic: "topic".to_string(), path: "main".to_string(), references: Vec::new() }
+            );
+            f.insert(
+                format!("{}\ntopic\nmain", identifier),
+                NoteMetaData { note_id, parent_id: Some(note_id), topic: "topic".to_string(), path: "main".to_string(), references: Vec::new() }
+            );
+
             f
         };
         for (content, metadata) in &metafileok {
@@ -74,14 +88,16 @@ mod tests {
             parent_id: None,
             references: Vec::new(),
             topic: "topic1".to_string(),
+            path: "main".to_string(),
         };
-        assert_eq!("\ntopic1", empty_metadata.serialize());
+        assert_eq!("\ntopic1\nmain", empty_metadata.serialize());
     }
     #[test]
      fn serialize() {
          let metadata = NoteMetaData {
             note_id: Uuid::parse_str("ec511da0-b751-4fee-a10a-e1f83cd34ff8").unwrap(),
             topic: "topic1".to_string(),
+            path: "main".to_string(),
             parent_id: Some(Uuid::parse_str("0a0aeade-6dc0-407a-8c67-4951ef4ace7f").unwrap()),
             references: vec![
                 Uuid::parse_str("65d436f9-045c-4738-8bdf-d6c3b53ea059").unwrap(),
@@ -92,6 +108,7 @@ mod tests {
          };
          let content = r"0a0aeade-6dc0-407a-8c67-4951ef4ace7f
 topic1
+main
 65d436f9-045c-4738-8bdf-d6c3b53ea059
 568acc08-74e5-4ab8-a440-42a206009c5f
 f0707063-e487-4a96-aa64-00bf6aa10e26
@@ -104,6 +121,7 @@ de527948-aeb2-4a91-946a-d0fa231c7a99";
          let metadata = NoteMetaData {
             note_id: Uuid::parse_str("ec511da0-b751-4fee-a10a-e1f83cd34ff8").unwrap(),
             topic: "topic1".to_string(),
+            path: "main".to_string(),
             parent_id: None,
             references: vec![
                 Uuid::parse_str("65d436f9-045c-4738-8bdf-d6c3b53ea059").unwrap(),
@@ -114,6 +132,7 @@ de527948-aeb2-4a91-946a-d0fa231c7a99";
          };
          let content = r"
 topic1
+main
 65d436f9-045c-4738-8bdf-d6c3b53ea059
 568acc08-74e5-4ab8-a440-42a206009c5f
 f0707063-e487-4a96-aa64-00bf6aa10e26

@@ -215,6 +215,7 @@ impl<'a> IOStore for Store<'a> {
             parent_id,
             references: Vec::new(),
             topic: topic.to_string(),
+            path: path.to_string(),
         };
         self.write_path(topic, path, note_id)?;
         fs::write(&note_target_path, metadata.serialize())?;
