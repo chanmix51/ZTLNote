@@ -214,9 +214,10 @@ impl<'a> IOStore for Store<'a> {
             note_id,
             parent_id,
             references: Vec::new(),
+            topic: topic.to_string(),
         };
-        self.write_path(topic,path, note_id)?;
-        fs::write(note_target_path, metadata.serialize())?;
+        self.write_path(topic, path, note_id)?;
+        fs::write(&note_target_path, metadata.serialize())?;
         self.update_note_content(filename, note_id)?;
             
         Ok(metadata)
@@ -225,7 +226,8 @@ impl<'a> IOStore for Store<'a> {
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>> {
         let path = self.get_basedir_pathbuf().join("meta").join(uuid.to_string());
         if path.exists() {
-            Ok(Some(NoteMetaData::parse_meta_file(uuid, fs::read_to_string(&path)?.as_str())?))
+            let content = fs::read_to_string(&path)?;
+            Ok(Some(NoteMetaData::parse_meta_file(uuid, &content)?))
         } else {
             Ok(None)
         }
@@ -324,5 +326,26 @@ mod tests {
         assert_eq!(another_note.note_id.to_string(), fs::read_to_string(base_dir_path.join("topics/topicA/paths/main")).unwrap(), "path has been updated");
 
         fs::remove_dir_all(base_dir).unwrap();
+    }
+
+    #[test]
+    pub fn get_note_metadata() {
+        let base_dir = "tmp/ztln_store6";
+        let store = Store::init(base_dir).unwrap();
+        store.create_topic("topicA").unwrap();
+        store.set_current_topic("topicA").unwrap();
+        let draft_note_path = Path::new("tmp/test6");
+        fs::write(draft_note_path, "This is a test 6 note").unwrap();
+        let metadata = store.add_note("topicA", "main", "tmp/test6").unwrap();
+        let res = store.get_note_metadata(metadata.note_id);
+        if res.is_err() {
+            println!("got error: {:?}", res);
+        }
+        assert!(res.is_ok(), format!("note '{}' is fetched", metadata.note_id));
+        let some_meta = res.unwrap();
+        assert!(some_meta.is_some());
+        let note_meta = some_meta.unwrap();
+        assert_eq!(metadata, note_meta);
+
     }
 }

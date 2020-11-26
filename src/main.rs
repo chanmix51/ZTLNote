@@ -155,38 +155,41 @@ enum SubPathCommand {
 impl PathCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         let mut orga = Organization::new(Store::attach(base_dir)?);
-        let topic = self.topic.clone();
         match &self.subcommand {
             SubPathCommand::List(cmd)
-                => cmd.execute(&mut orga, topic),
+                => cmd.execute(&mut orga),
             SubPathCommand::Branch(cmd)
-                => cmd.execute(&mut orga, topic),
+                => cmd.execute(&mut orga),
             SubPathCommand::Default(cmd)
-                => cmd.execute(&mut orga, topic),
+                => cmd.execute(&mut orga),
         }
     }
 }
 
 #[derive(Debug, StructOpt)]
 struct DefaultPathCommand {
+    #[structopt(short, long, about="use this topic instead of the current one")]
+    topic: Option<String>,
     #[structopt(about="new default path")]
     path: String,
 }
 
 impl DefaultPathCommand {
-    fn execute(&self, orga: &mut Organization, topic: Option<String>) -> Result<()> {
-        orga.set_current_path(topic.as_deref(), &self.path)?;
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        orga.set_current_path(self.topic.as_deref(), &self.path)?;
         Ok(())
     }
 }
 
 #[derive(Debug, StructOpt)]
 struct ListPathCommand {
+    #[structopt(long, short, about="use this topic instead of the current one")]
+    topic: Option<String>,
 }
 
 impl ListPathCommand {
-    fn execute(&self, orga: &mut Organization, topic: Option<String>) -> Result<()> {
-        let (topic, list) = orga.get_paths_list(topic.as_deref())?;
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        let (topic, list) = orga.get_paths_list(self.topic.as_deref())?;
         if list.is_empty() {
             println!("No paths in topic '{}'.", topic);
         } else {
@@ -203,13 +206,13 @@ impl ListPathCommand {
 struct BranchPathCommand {
     #[structopt(help="name of the new path")]
     new_path: String,
-    #[structopt(long, short, help="branch from this path instead of current path")]
-    path: Option<String>,
+    #[structopt(long, short, help="branch from this location instead of current HEAD")]
+    location: Option<String>,
 }
 
 impl BranchPathCommand {
-    fn execute(&self, orga: &mut Organization, topic: Option<String>) -> Result<()> {
-        orga.create_path(topic.as_deref(), &self.new_path, self.path.as_deref())?;
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        orga.create_path(&self.new_path, self.location.as_deref())?;
         
         Ok(())
     }
@@ -229,6 +232,7 @@ impl NoteCommand {
         }
     }
 }
+
 
 #[derive(Debug, StructOpt)]
 struct AddNoteCommand {

@@ -10,6 +10,7 @@ pub enum ZtlnError {
     TopicAlreadyExists(String),
     PathAlreadyExists(String, String),
     PathDoesNotExist(String, String),
+    ParserError(String, Option<String>)
 }
 
 impl fmt::Display for ZtlnError {
@@ -23,6 +24,8 @@ impl fmt::Display for ZtlnError {
                                 => write!(f, "→ Path '{}/{}' does already exist", topic, path),
             ZtlnError::PathDoesNotExist(topic, path)
                                 => write!(f, "→ Path {}/{} does not exist", topic, path),
+            ZtlnError::ParserError(field, some_msg) 
+                                => write!(f, "→ Parser error while reading '{}' field. {}", field, some_msg.as_deref().unwrap_or("")),
             ZtlnError::Default(message) 
                                 => write!(f, "→ {}", message),
                                 

@@ -1,5 +1,6 @@
 use crate::store::{Store, IOStore};
 use crate::error::{ZtlnError, Result};
+use crate::note::NoteMetaData;
 use uuid::Uuid;
 use regex::{Regex, CaptureMatches};
 
@@ -89,26 +90,12 @@ impl<'a> Organization<'a> {
         }
     }
 
-    pub fn create_path(&mut self, topic: Option<&str>, new_path: &str, starting_path: Option<&str>) -> Result<()> {
-        let topic = self.unwrap_or_default_topic(topic)?;
-        let starting_path = match starting_path {
-            Some(path) => path.to_string(),
-            None => 
-                match self.get_current_path(&topic)? {
-                    Some(path) => path,
-                    None => return Err(From::from(ZtlnError::Default("No default path".to_string()))),
-            }
-        };
-
-        if self.store.path_exists(&topic, new_path) {
-            return Err(From::from(ZtlnError::PathAlreadyExists(topic, new_path.to_string())))
-        }
-        if !self.store.path_exists(&topic, &starting_path) {
-            return Err(From::from(ZtlnError::PathDoesNotExist(topic, starting_path)));
-        }
-        let uuid = self.store.get_path(&topic, &starting_path)
+    pub fn create_path(&mut self, new_path: &str, location: Option<&str>) -> Result<()> {
+        let location = location.unwrap_or("HEAD").to_string();
+        let metadata = self.solve_location(&location)?
+            .ok_or_else(|| ZtlnError::Default("location does not exist".to_string()))?;
+        self.store.write_path(&metadata.topic, new_path, metadata.note_id)
             .unwrap_or_else(|e| self.manage_store_error::<_>(e));
-        self.store.write_path(&topic, new_path, uuid)?;
         Ok(())
     }
 
@@ -155,7 +142,7 @@ impl<'a> Organization<'a> {
         Ok(NoteCreationReport { note_id: meta.note_id, parent_id: meta.parent_id, topic, path })
     }
 
-    fn solve_location(&mut self, expr: &str) -> Result<Option<Uuid>> {
+    fn solve_location(&mut self, expr: &str) -> Result<Option<NoteMetaData>> {
         lazy_static! {
             static ref RELATIVE_LOC: Regex = Regex::new(r"^(?:(?P<topic>\w+)/)?(?P<path>\w+)(?::-(?P<modifier>\d+))?$").unwrap();
             static ref ABSOLUTE_LOC: Regex = Regex::new(r"^(?P<subuuid>[[:xdigit:]]{8})(?:(?:-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12})?$").unwrap();
@@ -171,48 +158,68 @@ impl<'a> Organization<'a> {
         }
     }
 
-    fn solve_absolute(&mut self, captures: &mut CaptureMatches) -> Result<Option<Uuid>> {
+    fn solve_absolute(&mut self, captures: &mut CaptureMatches) -> Result<Option<NoteMetaData>> {
         let cap = captures.next().unwrap();
         let subuuid = cap.name("subuuid").unwrap().as_str().to_string();
-        let some_uuid = self.store.search_short_uuid(&subuuid)?
-            .map(|meta| meta.note_id);
+        let some_metadata = self.store.search_short_uuid(&subuuid)?;
 
-        Ok(some_uuid)
+        Ok(some_metadata)
     }
-    fn solve_relative(&mut self, captures: &mut CaptureMatches) -> Result<Option<Uuid>> {
+
+    fn solve_relative(&mut self, captures: &mut CaptureMatches) -> Result<Option<NoteMetaData>> {
         let cap = captures.next().unwrap();
-        let path = cap.name("path").unwrap().as_str().to_string();
+
+        // 1 get the TOPIC, current topic if not specified
         let topic = if cap.name("topic").is_none() { 
             match self.get_current_topic() {
                 Some(t) => t,
                 None => return Err(From::from(ZtlnError::Default("No default topic and no topic specified.".to_string()))),
             }
         } else { cap.name("topic").unwrap().as_str().to_string() };
-        let mut some_uuid = if self.store.path_exists(&topic, &path) {
-            self.store.get_path(&topic, &path).ok()
+
+        // 2 get the PATH, current path if HEAD
+        let path =  match cap.name("path").unwrap().as_str() {
+            "HEAD"  => self.get_current_path(&topic)?.unwrap_or("main".to_string()),
+            subpath => subpath.to_string(),
+        };
+        
+        // 3 check if an entry exist at that location
+        let mut some_metadata = if let Ok(uuid) = self.store.get_path(&topic, &path) {
+            self.store.get_note_metadata(uuid)?
         } else { None };
+
+        // 4 look for position modifier in history tree, 0 if not specified
         let mut modifier = if cap.name("modifier").is_none() {
             0_usize
         } else { 
             str::parse::<usize>(cap.name("modifier").unwrap().as_str())?
         };
 
-        while modifier > 0 && some_uuid.is_some() {
-            some_uuid = self.store
-                .get_note_metadata(some_uuid.unwrap())?
-                .map(|meta| meta.parent_id)
-                .flatten();
+        while modifier > 0 && some_metadata.is_some() {
+            some_metadata = if let Some(uuid) = some_metadata.unwrap().parent_id {
+                self.store
+                .get_note_metadata(uuid)?
+            } else { None };
             modifier -= 1;
         }
 
-        Ok(some_uuid)
+        Ok(some_metadata)
     }
 
+    /**
+     * This method is called to crash the application when a IO error is
+     * trapped. This is used only to catch error from the underlying IO
+     * layer.
+     */
     fn manage_store_error<T>(&self, err: Box<dyn std::error::Error>) -> T {
         eprintln!("IO ERROR: {:?}", err);
         panic!("Crashing the application…");
     }
 
+    /**
+     * Test if a topic is given otherwise use the current topic. If no current
+     * topic is set, raise an error.
+     */
     fn unwrap_or_default_topic(&mut self, topic: Option<&str>) -> Result<String> {
         let topic = if let Some(t) = topic {
             t.to_string()
@@ -305,19 +312,19 @@ mod tests {
         let filename = "tmp/test4";
         let topic = "topic1";
         let mut orga = Organization::new( Store::init(base_dir).unwrap());
-        let res = orga.create_path(None, "whatever", None);
+        let res = orga.create_path("whatever", None);
         assert!(res.is_err());
         orga.create_topic(topic).unwrap();
-        let res = orga.create_path(Some(topic), "whatever", None);
+        let res = orga.create_path("whatever", Some("topic1/HEAD"));
         assert!(res.is_err());
         std::fs::write(filename, "This is test 4 content").unwrap();
         let report1 = orga.add_note(filename, Some(topic), None).unwrap();
-        let res1 = orga.create_path(Some(topic), "path2", None);
+        let res1 = orga.create_path("path2", Some("topic1/HEAD"));
         assert!(res1.is_ok());
         assert_eq!(2, orga.get_paths_list(Some(topic)).unwrap().1.len());
         let report2 = orga.add_note(filename, Some(topic), Some("path2")).unwrap();
         assert_eq!(report1.note_id, report2.parent_id.unwrap());
-        let res1 = orga.create_path(Some("wrong"),  "whatever", None);
+        let res1 = orga.create_path("whatever", Some("wrong/HEAD"));
         assert!(res1.is_err());
 
         std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
@@ -381,6 +388,36 @@ mod tests {
             println!("Testing location '{}' is wrong…", expr);
             assert!(orga.solve_location(expr).is_err());
         }
+    }
+
+    #[test]
+    fn location_head() {
+        let base_dir = "tmp/ztln_orga7";
+        let filename = "tmp/test7";
+        let topic = "topic1";
+        std::fs::write(filename, "This is test 7 content").unwrap();
+        let mut orga = Organization::new( Store::init(base_dir).unwrap());
+        orga.create_topic(topic).unwrap();
+        orga.set_current_topic(topic).unwrap();
+        let uuid_1 = orga.add_note(filename, None, None).unwrap().note_id;
+        let some_metadata = orga.solve_location("HEAD").unwrap();
+        assert!(some_metadata.is_some());
+        assert_eq!(uuid_1, some_metadata.unwrap().note_id);
+        let some_metadata = orga.solve_location("main").unwrap();
+        assert!(some_metadata.is_some());
+        assert_eq!(uuid_1, some_metadata.unwrap().note_id);
+        let some_metadata = orga.solve_location("main:-1").unwrap();
+        assert!(some_metadata.is_none());
+        let uuid_2 = orga.add_note(filename, None, None).unwrap().note_id;
+        let some_metadata = orga.solve_location("main:-1").unwrap();
+        assert!(some_metadata.is_some());
+        assert_eq!(uuid_1, some_metadata.unwrap().note_id);
+        let some_metadata = orga.solve_location("HEAD").unwrap();
+        assert!(some_metadata.is_some());
+        assert_eq!(uuid_2, some_metadata.unwrap().note_id);
+        let some_metadata = orga.solve_location("HEAD:-1").unwrap();
+        assert!(some_metadata.is_some());
+        assert_eq!(uuid_1, some_metadata.unwrap().note_id);
     }
 
 }
