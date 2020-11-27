@@ -1,5 +1,6 @@
 use uuid::Uuid;
 use crate::error::{ZtlnError, Result};
+use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub struct NoteMetaData {
@@ -8,6 +9,18 @@ pub struct NoteMetaData {
     pub references: Vec<Uuid>,
     pub topic: String,
     pub path: String,
+}
+
+impl fmt::Display for NoteMetaData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "note_id:   {}\n", &self.note_id.to_string()[..8])?;
+        write!(f, "parent_id: {}\n", &self.parent_id.map_or("none    ".to_string(), |uuid| uuid.to_string())[..8].trim().to_string())?;
+        write!(f, "references:")?;
+        for reference in &self.references {
+            write!(f, "  - {}\n", &reference.to_string()[..8])?;
+        }
+        write!(f, "")
+    }
 }
 
 impl NoteMetaData {

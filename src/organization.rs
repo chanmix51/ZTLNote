@@ -154,14 +154,14 @@ impl<'a> Organization<'a> {
             static ref RELATIVE_LOC: Regex = Regex::new(r"^(?:(?P<topic>\w+)/)?(?P<path>\w+)(?::-(?P<modifier>\d+))?$").unwrap();
             static ref ABSOLUTE_LOC: Regex = Regex::new(r"^(?P<subuuid>[[:xdigit:]]{8})(?:(?:-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12})?$").unwrap();
         }
-        if RELATIVE_LOC.is_match(expr) {
-            let mut captures = RELATIVE_LOC.captures_iter(expr);
-            self.solve_relative(&mut captures)
-        } else if ABSOLUTE_LOC.is_match(expr) {
+        if ABSOLUTE_LOC.is_match(expr) {
             let mut captures = ABSOLUTE_LOC.captures_iter(expr);
             self.solve_absolute(&mut captures)
+        } else if RELATIVE_LOC.is_match(expr) {
+            let mut captures = RELATIVE_LOC.captures_iter(expr);
+            self.solve_relative(&mut captures)
         } else {
-            Err(From::from(ZtlnError::Default(format!("Invalid location '{}'.", expr))))
+            Err(From::from(ZtlnError::Default(format!("Invalid location expression '{}'.", expr))))
         }
     }
 

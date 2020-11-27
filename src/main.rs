@@ -254,12 +254,7 @@ impl NoteShowCommand {
         let content = orga.get_note_content(metadata.note_id)?;
         println!("{}", content);
         println!("================================================================================");
-        println!("note_id:   {}", metadata.note_id);
-        println!("parent_id: {}", &metadata.parent_id.map_or("none".to_string(), |uuid| uuid.to_string()));
-        println!("references:");
-        for reference in metadata.references {
-            println!("  - {}", reference);
-        }
+        println!("{}", metadata);
 
         Ok(())
     }
