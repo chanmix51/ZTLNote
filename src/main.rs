@@ -302,10 +302,13 @@ impl AddNoteCommand {
                 f.to_string()
             }
         };
-        let r = orga.add_note(&filename, self.topic.as_deref(), self.path.as_deref())?;
-        let note_id = r.note_id.to_string();
-        let parent_id = r.parent_id.map_or_else(|| "".to_string(), |v| v.to_string());
-        println!("Note '{}' ← '{}' added at {}/{}", parent_id, note_id, r.topic, r.path);
+        if !std::path::Path::new(&filename).exists() || std::fs::metadata(&filename)?.len() == 0 {
+            return Err(From::from(ZtlnError::Default("Note is empty, aborting operation.".to_string())));
+        }
+        let meta = orga.add_note(&filename, self.topic.as_deref(), self.path.as_deref())?;
+        let note_id = meta.note_id.to_string();
+        let parent_id = meta.parent_id.map_or_else(|| "".to_string(), |v| v.to_string());
+        println!("Note '{}' ← '{}' added at {}/{}", parent_id, note_id, meta.topic, meta.path);
         std::fs::remove_file(filename)?;
 
         Ok(())
