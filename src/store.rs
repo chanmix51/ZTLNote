@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::fmt;
 use uuid::Uuid;
+use std::collections::HashMap;
 
 use crate::{note::NoteMetaData, error::Result};
 
@@ -53,8 +54,11 @@ pub trait IOStore {
     fn get_note_content(&self, uuid: Uuid) -> Result<String>;
     fn get_note_metadata(&self, uuid: Uuid) -> Result<Option<NoteMetaData>>;
     fn write_note_metadata(&self, meta: &NoteMetaData) -> Result<()>;
-
     fn search_short_uuid(&self, short_uuid: &str) -> Result<Option<NoteMetaData>>;
+
+    fn add_keyword_index(&self, keyword: &str, metadata: &NoteMetaData) -> Result<()>;
+    fn get_meta_from_index(&self, keyword: &str) -> Result<Vec<NoteMetaData>>;
+    fn get_keywords(&self) -> Result<Vec<String>>;
 }
 
 #[derive(Debug)]
@@ -72,7 +76,9 @@ impl<'a> Store<'a> {
         fs::create_dir(path.join("meta"))?;
         fs::create_dir(path.join("notes"))?;
         fs::create_dir(path.join("topics"))?;
-        fs::File::create(path.join("index"))?;
+
+        let index:HashMap<String, Vec<Uuid>> = HashMap::new();
+        fs::write(path.join("index"), bincode::serialize(&index)?)?;
 
         Ok(Self { base_dir })
     }
@@ -111,6 +117,13 @@ impl<'a> Store<'a> {
         .join(topic)
         .join("paths")
         .join(path)
+    }
+
+    fn get_index(&self) -> Result<HashMap<String, Vec<Uuid>>> {
+        let index: HashMap<String, Vec<Uuid>> = bincode::deserialize(fs::read(self.get_basedir_pathbuf().join("index"))?.as_slice())?;
+
+        Ok(index)
+
     }
 }
 
@@ -260,6 +273,36 @@ impl<'a> IOStore for Store<'a> {
 
         Ok(None)
     }
+
+    fn add_keyword_index(&self, keyword: &str, metadata: &NoteMetaData) -> Result<()> {
+        let mut index = self.get_index()?;
+        if let Some(list) = index.get_mut(keyword) {
+            list.push(metadata.note_id);
+        } else {
+            index.insert(keyword.to_string(), vec![metadata.note_id]);
+        }
+        fs::write(self.get_basedir_pathbuf().join("index"), bincode::serialize(&index)?)?;
+        Ok(())
+    }
+
+    fn get_meta_from_index(&self, keyword: &str) -> Result<Vec<NoteMetaData>> {
+        let index = self.get_index()?;
+        let mut list_meta: Vec<NoteMetaData> = Vec::new();
+        if let Some(list) = index.get(keyword) {
+            for uuid in list {
+                if let Some(meta) = self.get_note_metadata(uuid.to_owned())? {
+                    list_meta.push(meta);
+                }
+            }
+        }
+        Ok(list_meta)
+    }
+
+    fn get_keywords(&self) -> Result<Vec<String>> {
+        let index = self.get_index()?;
+        Ok(index.keys().map(|s| s.to_owned()).collect())
+    }
+
 }
 
 #[cfg(test)]
@@ -364,5 +407,35 @@ mod tests {
         let note_meta = some_meta.unwrap();
         assert_eq!(metadata, note_meta);
 
+        fs::remove_dir_all(base_dir).unwrap();
+    }
+
+    #[test]
+    pub fn keyword_index() {
+        let base_dir = "tmp/ztln_store7";
+        let store = Store::init(base_dir).unwrap();
+        store.create_topic("topicA").unwrap();
+        store.set_current_topic("topicA").unwrap();
+        let draft_note_path = Path::new("tmp/test7");
+        fs::write(draft_note_path, "This is a test 7 note").unwrap();
+        let metadata = store.add_note("topicA", "main", "tmp/test7").unwrap();
+        let res = store.add_keyword_index("keyword", &metadata);
+        if res.is_err() {
+            println!("ERROR: {:?}", res);
+        }
+        assert!(res.is_ok());
+        store.add_keyword_index("other_tag", &metadata).unwrap();
+
+        let res = store.get_meta_from_index("keyword");
+        if res.is_err() {
+            println!("ERROR: {:?}", res);
+        }
+        assert!(res.is_ok());
+        let list = res.unwrap();
+        assert_eq!(1, list.len());
+        assert_eq!(metadata.note_id, list[0].note_id);
+        let keywords = store.get_keywords().unwrap();
+        assert_eq!(2, keywords.len());
+        //fs::remove_dir_all(base_dir).unwrap();
     }
 }

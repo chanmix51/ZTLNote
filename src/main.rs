@@ -7,7 +7,7 @@ use std::env;
 
 #[derive(Debug, StructOpt)]
 struct MainOpt {
-    #[structopt(long, env="ZTLN_BASE_DIR")]
+    #[structopt(long, env="ZTLN_BASE_DIR", help="organization directory path")]
     base_dir: String,
     #[structopt(subcommand)]
     command: MainCommand,
@@ -31,6 +31,8 @@ enum MainCommand {
     Path(PathCommand),
     #[structopt(about="Add or update notes.")]
     Note(NoteCommand),
+    #[structopt(about="Manage tags.")]
+    Tag(TagCommand),
 }
 
 impl MainCommand {
@@ -41,6 +43,7 @@ impl MainCommand {
             MainCommand::Topic(cmd) => cmd.execute(base_dir),
             MainCommand::Path(cmd) => cmd.execute(base_dir),
             MainCommand::Note(cmd) => cmd.execute(base_dir),
+            MainCommand::Tag(cmd) => cmd.execute(base_dir),
         }
     }
 }
@@ -100,6 +103,7 @@ impl TopicCommand {
 struct CreateTopicCommand {
     topic_name: String
 }
+
 impl CreateTopicCommand {
     fn execute(&self, orga: &mut Organization) -> Result<()> {
         orga.create_topic(&self.topic_name)
@@ -303,6 +307,77 @@ impl AddNoteCommand {
         let parent_id = r.parent_id.map_or_else(|| "".to_string(), |v| v.to_string());
         println!("Note '{}' ← '{}' added at {}/{}", parent_id, note_id, r.topic, r.path);
         std::fs::remove_file(filename)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+enum TagCommand {
+    #[structopt(about="add a keyword to a note at given location (or HEAD)")]
+    Add(TagAddCommand),
+    #[structopt(about="get the list of notes that are associated with the given keyword")]
+    Search(TagSearchCommand),
+    #[structopt(about="list keywords from the index")]
+    List(TagListCommand),
+}
+
+impl TagCommand {
+    fn execute(&self, base_dir: &str) -> Result<()> {
+        let mut orga = Organization::new(Store::attach(base_dir)?);
+        match self {
+            TagCommand::Add(cmd) => cmd.execute(&mut orga),
+            TagCommand::Search(cmd) => cmd.execute(&mut orga),
+            TagCommand::List(cmd) => cmd.execute(&mut orga)
+        }
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct TagAddCommand {
+    #[structopt(help="the keyword to tag the note with")]
+    keyword: String,
+    #[structopt(help="note's location (defaults to MAIN)")]
+    location: Option<String>,
+}
+
+impl TagAddCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        orga.add_keyword(&self.keyword, self.location.as_deref())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct TagSearchCommand {
+    #[structopt(help="keyword to search in the index")]
+    keyword: String,
+}
+
+impl TagSearchCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        let list = orga.search_keyword(&self.keyword);
+        for note in &list {
+            println!("{}", note.note_id.to_string()[..8].to_string());
+        }
+        if list.len() > 0 {
+            println!("{} results found.", list.len());
+        } else {
+            println!("No result found.");
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct TagListCommand {
+}
+
+impl TagListCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        for kw in orga.list_keywords() {
+            println!("{}", kw);
+        }
 
         Ok(())
     }

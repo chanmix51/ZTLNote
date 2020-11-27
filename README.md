@@ -5,6 +5,10 @@ ZtlNote is an attempt to implement a zettelkasten organization method software.
 The approach of ZtlNote is to be a fast CLI tool to interact with notes a bit like [Git](https://git-scm.com/). 
 The implementation will be a file based store that is organized to maintain strings of notes and references.
 
+## Usage
+
+    ztln command [arguments] [options]
+
 ## Conception 
 
 ### Vocabulary
@@ -85,12 +89,17 @@ The main file uses `StructOpt` to parse the command line arguments. Each command
     * list: list thought topics in the Organization (maybe none). `ztln topic list`
     * default: set the default topic for operations. `ztln topic default topic1`
  * path
-    * create: create a path `ztln path create path1` (error if it already exists)
-    * default: set the given path as default path `ztln path default path1`
+    * branch: branch a path from a specified point `ztln path create topic/path:-N` (error if it already exists)
     * list: list the paths in the current topic `ztln path list` or `ztln path list topic1`
+    * default: set the given path as default path `ztln path default path1`
  * note:
-    * add: create a note from an existing content file `ztln note add filename` or `ztln note add filename path1` or `ztln note add filename path1 topic1`. Tags and references can be passed as parameters: `ztln note add filename --tags tag1,tag2 --references uuid1,uuid2`
+    * add: create a note from an existing content file `ztln note add filename` or `ztln note add filename path1` or `ztln note add filename path1 topic1`. Tags and references can be passed as parameters: `ztln note add filename --tags tag1,tag2 --references uuid1,uuid2` (not yet implemented)
     * show: show a note from a given location `ztln note show "topic2/HEAD:-2"` or `ztln note show a4ab9b24-8bff-4b2e-a513-0f489c91f22b` or `ztln note show a4ab9b24`
+    * reference: create a reference from one note to another.
+ * tag
+    * add: tag a note with the given keyword
+    * search: search all notes tagged with the given keyword
+    * list: list all the keywords stored in the index
 
 ### library
 

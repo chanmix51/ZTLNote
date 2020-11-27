@@ -149,7 +149,7 @@ impl<'a> Organization<'a> {
        self.store.get_note_content(uuid)
     }
 
-   pub fn solve_location(&mut self, expr: &str) -> Result<Option<NoteMetaData>> {
+    pub fn solve_location(&mut self, expr: &str) -> Result<Option<NoteMetaData>> {
         lazy_static! {
             static ref RELATIVE_LOC: Regex = Regex::new(r"^(?:(?P<topic>\w+)/)?(?P<path>\w+)(?::-(?P<modifier>\d+))?$").unwrap();
             static ref ABSOLUTE_LOC: Regex = Regex::new(r"^(?P<subuuid>[[:xdigit:]]{8})(?:(?:-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12})?$").unwrap();
@@ -163,6 +163,26 @@ impl<'a> Organization<'a> {
         } else {
             Err(From::from(ZtlnError::Default(format!("Invalid location expression '{}'.", expr))))
         }
+    }
+
+    pub fn add_keyword(&mut self, keyword: &str, location: Option<&str>) -> Result<()> {
+        let location = location.unwrap_or("HEAD");
+        let meta = self.solve_location(location)?
+            .ok_or_else(|| ZtlnError::LocationError(location.to_string()))?;
+        self.store.add_keyword_index(keyword, &meta)
+            .unwrap_or_else(|e| self.manage_store_error(e));
+
+        Ok(())
+    }
+
+    pub fn search_keyword(&self, keyword: &str) -> Vec<NoteMetaData> {
+        self.store.get_meta_from_index(keyword)
+            .unwrap_or_else(|e| self.manage_store_error(e))
+    }
+
+    pub fn list_keywords(&self) -> Vec<String> {
+        self.store.get_keywords()
+            .unwrap_or_else(|e| self.manage_store_error(e))
     }
 
     fn solve_absolute(&mut self, captures: &mut CaptureMatches) -> Result<Option<NoteMetaData>> {
