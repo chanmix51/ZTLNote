@@ -7,7 +7,40 @@ The implementation will be a file based store that is organized to maintain stri
 
 ## Usage
 
+### Introduction
+
+In his book about the Zettelkasten organization (*How to Take Smart Notes*), Ahrens Sönke describes 3 steps:
+
+- take flying notes about what you read/hear/see 
+- rework these notes in the Zettelkasten combining them with the existing ones and trash flying notes
+- when writing about a topic, extract paths of thoughts from the Zettelkasten as raw material.
+
+The forces of the Zettelkasten lie in its organization in paths, references between notes and a taggin system. ZtlNote combine these three things.
+
+I have written ZtlNote with my understanding of the book in an effort of testing this organization while having a coding experience with Rust.
+
+### Command line
+
     ztln command [arguments] [options]
+
+ * info: list current topic/path with its date of last note creation/update
+ * init: create an Organization and initialize the structure on disk.
+ * topic
+    * create: create a topic. This also creates the `main` path in that topic (maybe a `--main-path` option may be added in the future to specify the name of the topic's default path) `ztln topic create TOPIC`
+    * list: list topics in the Organization (maybe none). `ztln topic list`
+    * default: set the default topic for operations. `ztln topic default TOPIC`
+ * path
+    * branch: branch a path from a specified note `ztln path create PATH [LOCATION]`
+    * list: list the existings paths in the current topic `ztln path list` or `ztln path list TOPIC`
+    * default: set the given path as default path `ztln path default PATH`
+ * note:
+    * add: create a note from an existing content file `ztln note add [FILENAME] [-p PATH] [-t TOPIC]`
+    * show: show a note from a given location `ztln note show LOCATION`.
+    * reference: create a reference from one note to another `ztln note reference LOCATION LOCATION`
+ * tag
+    * add: tag a note with the given keyword `ztln tag add KEYWORD [LOCATION]`
+    * search: search all notes tagged with the given keyword `ztln tag search KEYWORD`
+    * list: list all the keywords stored in the index `ztln tag list`
 
 ## Conception 
 
@@ -81,25 +114,6 @@ Here are other examples of locations:
 ### front end
 
 The main file uses `StructOpt` to parse the command line arguments. Each command must be a struct testable on its own:
-
- * info: list current topic/path with its date of last note creation/update
- * init: create an Organization and initialize the Store structure on disk.
- * topic
-    * create: create a topic (error if it already exists). This also creates the `main` path in that topic (maybe a `--main-path` option may be added in the future to specify the name of that deault path) `ztln topic create topic1`
-    * list: list thought topics in the Organization (maybe none). `ztln topic list`
-    * default: set the default topic for operations. `ztln topic default topic1`
- * path
-    * branch: branch a path from a specified point `ztln path create topic/path:-N` (error if it already exists)
-    * list: list the paths in the current topic `ztln path list` or `ztln path list topic1`
-    * default: set the given path as default path `ztln path default path1`
- * note:
-    * add: create a note from an existing content file `ztln note add filename` or `ztln note add filename path1` or `ztln note add filename path1 topic1`. Tags and references can be passed as parameters: `ztln note add filename --tags tag1,tag2 --references uuid1,uuid2` (not yet implemented)
-    * show: show a note from a given location `ztln note show "topic2/HEAD:-2"` or `ztln note show a4ab9b24-8bff-4b2e-a513-0f489c91f22b` or `ztln note show a4ab9b24`
-    * reference: create a reference from one note to another.
- * tag
-    * add: tag a note with the given keyword
-    * search: search all notes tagged with the given keyword
-    * list: list all the keywords stored in the index
 
 ### library
 
