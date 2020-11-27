@@ -74,7 +74,9 @@ struct InitCommand {}
 
 impl InitCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
-        Store::init(base_dir).map(|_| ())
+        Store::init(base_dir)?;
+        println!("Ztln version {} organization intialized at '{}'.", env!("CARGO_PKG_VERSION"), base_dir);
+        Ok(())
     }
 }
 
