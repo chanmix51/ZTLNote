@@ -99,6 +99,10 @@ impl<'a> Organization<'a> {
     }
 
     pub fn add_note(&mut self, filename: &str, topic: Option<&str>, path: Option<&str>) -> Result<NoteMetaData> {
+        if !std::path::Path::new(&filename).exists() || std::fs::metadata(&filename)?.len() == 0 {
+            return Err(From::from(ZtlnError::Default("Note is empty, aborting operation.".to_string())));
+        }
+
         if let Some(f)= topic {
             self.set_current_topic(f)?;
         } else if self.get_current_topic().is_none() {
@@ -302,6 +306,9 @@ mod tests {
         let topic = "topic1";
         let mut orga = Organization::new( Store::init(base_dir).unwrap());
         orga.create_topic(topic).unwrap();
+        std::fs::write(filename, "").unwrap();
+        let res1 = orga.add_note(filename, None, None);
+        assert!(res1.is_err(), "empty file returns an error");
         std::fs::write(filename, "This is test 3 content").unwrap();
         let res1 = orga.add_note(filename, None, None).unwrap();
         assert!(res1.parent_id.is_none());

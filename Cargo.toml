@@ -1,7 +1,7 @@
 [package]
 name = "ztln"
-version = "1.0.0-alpha"
-authors = ["greg"]
+version = "1.0.0-alpha1"
+authors = ["hubert.greg@gmail.com"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
