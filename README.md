@@ -42,6 +42,36 @@ I have written ZtlNote with my understanding of the book in an effort of testing
     * search: search all notes tagged with the given keyword `ztln tag search KEYWORD`
     * list: list all the keywords stored in the index `ztln tag list`
 
+### Location format
+
+A location is an easy way for humans to designate a note at a moment in time. Since this address mode is relative to a head and paths are supposed to evolve over time, a note location one day may not designate the same note the day after. Furthermore, a location may be relative to a current topic and path. If a unique address stable in time or an absolute address is required then the note UUID shall be used instead. 
+
+`[topic/]path[:-N]`
+
+ - topic: f specified, the topic designate the Tought Topic of the Note. If note specified, the current topic is used.
+ - path: the path followed to reach the Note. Since paths have notes in common, several paths can be used to reach the same note.
+ - modifier: the number of ancestor of the path head's note (default to 0)
+
+ Examples:
+    
+    topic1   A ─ B ─ C - D ←main (current path)
+                 └ ─ E     ←path1
+
+Assuming the `topic1` is the current topic, the note B can be reached with the following locations:
+
+ * `main:-2` equivalent of `topic1/main:-2`
+ * `HEAD:-2` since main is the current path
+ * `path1:-1`
+
+Here are other examples of locations:
+
+ * `HEAD` or `main` or `main:-0` or `topic1/main` or `topic1/main:-0` → note D
+ * `path1:-2` → note A
+ * `path1:-4` → Nothing
+ * `wrongpath` → Nothing
+ * `wrong/address/format#` → Error
+
+
 ## Conception 
 
 ### Vocabulary
@@ -78,36 +108,6 @@ Store:
 
 Note Identifier:
     Unique technical identifier for a note (UUID V4).
-
-### Location format
-
-A location is an easy way for humans to designate a note at a moment in time. Since this address mode is relative to a head and paths are supposed to evolve over time, a note location one day may not designate the same note the day after. Furthermore, a location may be relative to a current topic and path. If a unique address stable in time or an absolute address is required then the note UUID shall be used instead. 
-
-`[topic/]path[:-N]`
-
- - topic: f specified, the topic designate the Tought Topic of the Note. If note specified, the current topic is used.
- - path: the path followed to reach the Note. Since paths have notes in common, several paths can be used to reach the same note.
- - modifier: the number of ancestor of the path head's note (default to 0)
-
- Examples:
-    
-    topic1   A ─ B ─ C - D ←main (current path)
-                 └ ─ E     ←path1
-
-Assuming the `topic1` is the current topic, the note B can be reached with the following locations:
-
- * `main:-2` equivalent of `topic1/main:-2`
- * `HEAD:-2` since main is the current path
- * `path1:-1`
-
-Here are other examples of locations:
-
- * `HEAD` or `main` or `main:-0` or `topic1/main` or `topic1/main:-0` → note D
- * `path1:-2` → note A
- * `path1:-4` → Nothing
- * `wrongpath` → Nothing
- * `wrong/address/format#` → Error
-
 
 ## Architecture
 
