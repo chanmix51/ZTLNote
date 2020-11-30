@@ -13,7 +13,7 @@ In his book about the Zettelkasten organization (*How to Take Smart Notes*), Ahr
 
 - take flying notes about what you read/hear/see 
 - rework these notes in the Zettelkasten combining them with the existing ones and trash flying notes
-- when writing about a topic, extract paths of thoughts from the Zettelkasten as raw material.
+- when you want to write a book or a blog post about a subject, extract paths of thoughts from the Zettelkasten as raw material.
 
 The forces of the Zettelkasten lie in its organization in paths, references between notes and a taggin system. ZtlNote combine these three things.
 
@@ -24,17 +24,17 @@ I have written ZtlNote with my understanding of the book in an effort of testing
     ztln command [arguments] [options]
 
  * info: list current topic/path with its date of last note creation/update
- * init: create an Organization and initialize the structure on disk.
+ * init: create an Organization and initialize the structure on disk. By default, the directory is taken from the `ZTLN_BASE_DIR` environment variable but it can be passed as parameter: `ztln --base-dir DIR init`
  * topic
-    * create: create a topic. This also creates the `main` path in that topic (maybe a `--main-path` option may be added in the future to specify the name of the topic's default path) `ztln topic create TOPIC`
+    * create: create a new topic. This also creates the `main` path in that topic (maybe a `--main-path` option may be added in the future to specify the name of the topic's default path) `ztln topic create TOPIC`
     * list: list topics in the Organization (maybe none). `ztln topic list`
     * default: set the default topic for operations. `ztln topic default TOPIC`
  * path
-    * branch: branch a path from a specified note `ztln path create PATH [LOCATION]`
+    * branch: branch a path from a specified note `ztln path branch PATH [LOCATION]`
     * list: list the existings paths in the current topic `ztln path list` or `ztln path list TOPIC`
     * default: set the given path as default path `ztln path default PATH`
  * note:
-    * add: create a note from an existing content file `ztln note add [FILENAME] [-p PATH] [-t TOPIC]`
+    * add: create a note from an existing content file `ztln note add [FILENAME] [-p PATH] [-t TOPIC]`. If the filename is not given, the editor specified with the environment variable `$EDITOR` (default: vi) is launched. The file is then saved as a new note either at the default location (HEAD) or the specified topic/path.
     * show: show a note from a given location `ztln note show LOCATION`.
     * reference: create a reference from one note to another `ztln note reference LOCATION LOCATION`
  * tag
