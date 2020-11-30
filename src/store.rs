@@ -48,6 +48,7 @@ pub trait IOStore {
     fn path_exists(&self, topic: &str, path: &str) -> bool;
     fn set_current_path(&self, topic: &str, path: &str) -> Result<()>;
     fn get_current_path(&self, topic: &str) -> Result<Option<String>>;
+    fn remove_path(&self, topic: &str, path: &str) -> Result<()>;
 
     fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
     fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()>;
@@ -213,6 +214,11 @@ impl<'a> IOStore for Store<'a> {
         self.get_path_pathbuf(topic, path).exists()  
     }
 
+    fn remove_path(&self, topic: &str, path: &str) -> Result<()> {
+        fs::remove_file(self.get_path_pathbuf(topic, path))?;
+        Ok(())
+    }
+
     fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()> {
         let target_path = self.get_basedir_pathbuf().join("notes").join(note_id.to_string());
         fs::copy(filename, target_path)?;
@@ -328,12 +334,13 @@ mod tests {
         let base_dir = "tmp/ztln_store2";
         let store = Store::init(base_dir).unwrap();
         let path = Path::new(base_dir);
-        assert!(!path.join("topics").join("topicA").exists());
-        store.create_topic("topicA").unwrap();
-        assert!(path.join("topics").join("topicA").is_dir());
-        assert!(!path.join("topics").join("topicA").join("HEAD").exists());
-        assert!(path.join("topics").join("topicA").join("paths").is_dir());
-        assert!(!path.join("topics").join("topicA").join("paths").join("main").exists());
+        let topic = "topicA";
+        assert!(!path.join("topics").join(topic).exists());
+        store.create_topic(topic).unwrap();
+        assert!(path.join("topics").join(topic).is_dir());
+        assert!(!path.join("topics").join(topic).join("HEAD").exists());
+        assert!(path.join("topics").join(topic).join("paths").is_dir());
+        assert!(!path.join("topics").join(topic).join("paths").join("main").exists());
 
         fs::remove_dir_all(path).unwrap();
     }
@@ -436,6 +443,29 @@ mod tests {
         assert_eq!(metadata.note_id, list[0].note_id);
         let keywords = store.get_keywords().unwrap();
         assert_eq!(2, keywords.len());
-        //fs::remove_dir_all(base_dir).unwrap();
+        fs::remove_dir_all(base_dir).unwrap();
+    }
+
+    #[test]
+    fn remove_path() {
+        let base_dir = "tmp/ztln_store8";
+        let store = Store::init(base_dir).unwrap();
+        let topic = "topicA";
+        store.create_topic(topic).unwrap();
+        store.set_current_topic(topic).unwrap();
+        let draft_note_path = Path::new("tmp/test8");
+        fs::write(draft_note_path, "This is a test 8 note").unwrap();
+        let metadata = store.add_note(topic, "main", "tmp/test8").unwrap();
+        let path1 = "new_path1";
+        let path2 = "new_path2";
+        store.write_path(topic, path1, metadata.note_id).unwrap();
+        store.write_path(topic, path2, metadata.note_id).unwrap();
+        store.remove_path(topic, path1).unwrap();
+        assert!(!store.path_exists(topic, path1));
+        assert!(store.path_exists(topic, path2));
+        assert!(store.remove_path(topic, path1).is_err());
+        store.remove_path(topic, path2).unwrap();
+        assert!(!store.path_exists(topic, path2));
+        fs::remove_dir_all(base_dir).unwrap();
     }
 }
