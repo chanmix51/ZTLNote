@@ -156,6 +156,8 @@ enum SubPathCommand {
     Branch(BranchPathCommand),
     #[structopt(about="set the default path in a topic")]
     Default(DefaultPathCommand),
+    #[structopt(about="remove a path")]
+    Remove(RemovePathCommand),
 }
 
 impl PathCommand {
@@ -167,6 +169,8 @@ impl PathCommand {
             SubPathCommand::Branch(cmd)
                 => cmd.execute(&mut orga),
             SubPathCommand::Default(cmd)
+                => cmd.execute(&mut orga),
+            SubPathCommand::Remove(cmd)
                 => cmd.execute(&mut orga),
         }
     }
@@ -224,6 +228,22 @@ impl BranchPathCommand {
     }
 }
 
+#[derive(Debug, StructOpt)]
+struct RemovePathCommand {
+    #[structopt(help="the name of the path")]
+    path: String,
+    #[structopt(short, long, help="the name of the topic if not the default one")]
+    topic: Option<String>,
+}
+
+impl RemovePathCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        let metadata = orga.remove_path(&self.path, self.topic.as_deref())?;
+        println!("path '{}' deleted ({})", self.path, metadata.note_id.to_string()[..8].to_string());
+
+        Ok(())
+    }
+}
 #[derive(Debug, StructOpt)]
 enum NoteCommand {
     #[structopt(about="add a new note")]

@@ -33,6 +33,7 @@ I have written ZtlNote with my understanding of the book in an effort of testing
     * branch: branch a path from a specified note `ztln path branch PATH [LOCATION]`
     * list: list the existings paths in the current topic `ztln path list` or `ztln path list TOPIC`
     * default: set the given path as default path `ztln path default PATH`
+    * remove: remove the given path `ztln path remove PATH`. There will be no warning if some notes are not in any path after this process.
  * note:
     * add: create a note from an existing content file `ztln note add [FILENAME] [-p PATH] [-t TOPIC]`. If the filename is not given, the editor specified with the environment variable `$EDITOR` (default: vi) is launched. The file is then saved as a new note either at the default location (HEAD) or the specified topic/path.
     * show: show a note from a given location `ztln note show LOCATION`.

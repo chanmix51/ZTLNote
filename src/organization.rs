@@ -91,6 +91,19 @@ impl<'a> Organization<'a> {
         Ok(())
     }
 
+    pub fn remove_path(&mut self, path: &str, topic: Option<&str>) -> Result<NoteMetaData> {
+        let metadata = if let Some(t) = topic {
+            self.solve_location(&format!("{}/{}", t, path))?
+                .ok_or_else(|| ZtlnError::PathDoesNotExist(t.to_string(), path.to_string()))?
+        } else {
+            self.solve_location(path)?
+                .ok_or_else(|| ZtlnError::LocationError(path.to_string()))?
+        };
+        self.store.remove_path(&metadata.topic, path)
+            .unwrap_or_else(|e| self.manage_store_error::<_>(e));
+        Ok(metadata)
+    }
+
     pub fn get_paths_list(&mut self, topic: Option<&str>) -> Result<(String, Vec<String>)> {
         let topic = self.unwrap_or_default_topic(topic)?;
         let paths = self.store.get_paths(&topic)
@@ -421,6 +434,8 @@ mod tests {
             println!("Testing location '{}' is wrong…", expr);
             assert!(orga.solve_location(expr).is_err());
         }
+
+        std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
     }
 
     #[test]
@@ -451,6 +466,8 @@ mod tests {
         let some_metadata = orga.solve_location("HEAD:-1").unwrap();
         assert!(some_metadata.is_some());
         assert_eq!(uuid_1, some_metadata.unwrap().note_id);
+
+        std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
     }
 
     #[test]
@@ -473,5 +490,24 @@ mod tests {
         assert!(result.is_ok());
         let meta = result.unwrap();
         assert_eq!(1, meta.references.len());
+
+        std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
+    }
+
+    #[test]
+    fn remove_path() {
+        let base_dir = "tmp/ztln_orga9";
+        let filename = "tmp/test9";
+        let topic = "topic1";
+        std::fs::write(filename, "This is test 9 content").unwrap();
+        let mut orga = Organization::new( Store::init(base_dir).unwrap());
+        orga.create_topic(topic).unwrap();
+        orga.set_current_topic(topic).unwrap();
+        let meta1 = orga.add_note(filename, None, None).unwrap();
+        orga.create_path("test", None).unwrap();
+        let meta2 = orga.remove_path("test", None).unwrap();
+        assert_eq!(meta1, meta2);
+
+        std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
     }
 }
