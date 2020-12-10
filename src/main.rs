@@ -244,6 +244,7 @@ impl RemovePathCommand {
         Ok(())
     }
 }
+
 #[derive(Debug, StructOpt)]
 enum NoteCommand {
     #[structopt(about="add a new note")]
@@ -397,8 +398,8 @@ struct TagListCommand {
 
 impl TagListCommand {
     fn execute(&self, orga: &mut Organization) -> Result<()> {
-        for kw in orga.list_keywords() {
-            println!("{}", kw);
+        for (kw, count) in orga.list_keywords() {
+            println!("{} ({} notes)", kw, count);
         }
 
         Ok(())

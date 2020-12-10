@@ -197,7 +197,7 @@ impl<'a> Organization<'a> {
             .unwrap_or_else(|e| self.manage_store_error(e))
     }
 
-    pub fn list_keywords(&self) -> Vec<String> {
+    pub fn list_keywords(&self) -> Vec<(String, usize)> {
         self.store.get_keywords()
             .unwrap_or_else(|e| self.manage_store_error(e))
     }

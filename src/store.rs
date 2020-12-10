@@ -59,7 +59,7 @@ pub trait IOStore {
 
     fn add_keyword_index(&self, keyword: &str, metadata: &NoteMetaData) -> Result<()>;
     fn get_meta_from_index(&self, keyword: &str) -> Result<Vec<NoteMetaData>>;
-    fn get_keywords(&self) -> Result<Vec<String>>;
+    fn get_keywords(&self) -> Result<Vec<(String, usize)>>;
 }
 
 #[derive(Debug)]
@@ -304,9 +304,9 @@ impl<'a> IOStore for Store<'a> {
         Ok(list_meta)
     }
 
-    fn get_keywords(&self) -> Result<Vec<String>> {
+    fn get_keywords(&self) -> Result<Vec<(String, usize)>> {
         let index = self.get_index()?;
-        Ok(index.keys().map(|s| s.to_owned()).collect())
+        Ok(index.iter().map(|(key, list)| (key.to_owned(), list.len())).collect())
     }
 
 }
