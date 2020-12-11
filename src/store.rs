@@ -49,6 +49,7 @@ pub trait IOStore {
     fn set_current_path(&self, topic: &str, path: &str) -> Result<()>;
     fn get_current_path(&self, topic: &str) -> Result<Option<String>>;
     fn remove_path(&self, topic: &str, path: &str) -> Result<()>;
+    fn reset_path(&self, topic: &str, path: &str, uuid: Uuid) -> Result<()>;
 
     fn add_note(&self, topic: &str, path: &str, filename: &str) -> Result<NoteMetaData>;
     fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()>;
@@ -216,6 +217,11 @@ impl<'a> IOStore for Store<'a> {
 
     fn remove_path(&self, topic: &str, path: &str) -> Result<()> {
         fs::remove_file(self.get_path_pathbuf(topic, path))?;
+        Ok(())
+    }
+
+    fn reset_path(&self, topic: &str, path: &str, uuid: Uuid) -> Result<()> {
+        fs::write(self.get_path_pathbuf(topic, path), uuid.to_string())?;
         Ok(())
     }
 
@@ -466,6 +472,25 @@ mod tests {
         assert!(store.remove_path(topic, path1).is_err());
         store.remove_path(topic, path2).unwrap();
         assert!(!store.path_exists(topic, path2));
+        fs::remove_dir_all(base_dir).unwrap();
+    }
+
+    #[test]
+    fn reset_path() {
+        let base_dir = "tmp/ztln_store9";
+        let store = Store::init(base_dir).unwrap();
+        let topic = "topicA";
+        store.create_topic(topic).unwrap();
+        store.set_current_topic(topic).unwrap();
+        let draft_note_path = Path::new("tmp/test9");
+        fs::write(draft_note_path, "This is a test 9 note").unwrap();
+        let metadata1 = store.add_note(topic, "main", "tmp/test9").unwrap();
+        let metadata2 = store.add_note(topic, "main", "tmp/test9").unwrap();
+        let path1 = "new_path1";
+        store.write_path(topic, path1, metadata2.note_id).unwrap();
+        store.reset_path(topic, path1, metadata1.note_id).unwrap();
+        let uuid = store.get_path(topic, path1).unwrap();
+        assert_eq!(metadata1.note_id, uuid);
         fs::remove_dir_all(base_dir).unwrap();
     }
 }

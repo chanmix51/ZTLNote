@@ -158,6 +158,8 @@ enum SubPathCommand {
     Default(DefaultPathCommand),
     #[structopt(about="remove a path")]
     Remove(RemovePathCommand),
+    #[structopt(about="reset a path to another location")]
+    Reset(ResetPathCommand),
 }
 
 impl PathCommand {
@@ -171,6 +173,8 @@ impl PathCommand {
             SubPathCommand::Default(cmd)
                 => cmd.execute(&mut orga),
             SubPathCommand::Remove(cmd)
+                => cmd.execute(&mut orga),
+            SubPathCommand::Reset(cmd)
                 => cmd.execute(&mut orga),
         }
     }
@@ -241,6 +245,24 @@ impl RemovePathCommand {
         let metadata = orga.remove_path(&self.path, self.topic.as_deref())?;
         println!("path '{}' deleted ({})", self.path, metadata.note_id.to_string()[..8].to_string());
 
+        Ok(())
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct ResetPathCommand {
+    #[structopt(help="the name of the path")]
+    path: String,
+    #[structopt(help="the new location of the path")]
+    location: String,
+    #[structopt(short, long, help="the name of the topic if not the default one")]
+    topic: Option<String>,
+}
+
+impl ResetPathCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        let (old_metadata, new_metadata) = orga.reset_path(&self.path, self.topic.as_deref(), &self.location)?;
+        println!("path {} reset at {} (was {})", self.path, old_metadata, new_metadata);
         Ok(())
     }
 }
@@ -383,7 +405,7 @@ impl TagSearchCommand {
         for note in &list {
             println!("{}", note.note_id.to_string()[..8].to_string());
         }
-        if list.len() > 0 {
+        if list.is_empty() {
             println!("{} results found.", list.len());
         } else {
             println!("No result found.");

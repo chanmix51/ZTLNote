@@ -92,16 +92,22 @@ impl<'a> Organization<'a> {
     }
 
     pub fn remove_path(&mut self, path: &str, topic: Option<&str>) -> Result<NoteMetaData> {
-        let metadata = if let Some(t) = topic {
-            self.solve_location(&format!("{}/{}", t, path))?
-                .ok_or_else(|| ZtlnError::PathDoesNotExist(t.to_string(), path.to_string()))?
-        } else {
-            self.solve_location(path)?
-                .ok_or_else(|| ZtlnError::LocationError(path.to_string()))?
-        };
+        let metadata = self.get_metadata(path, topic)?;
         self.store.remove_path(&metadata.topic, path)
             .unwrap_or_else(|e| self.manage_store_error::<_>(e));
         Ok(metadata)
+    }
+
+    pub fn reset_path(&mut self, path: &str, topic: Option<&str>, location: &str) -> Result<(NoteMetaData, NoteMetaData)> {
+        let old_metadata = self.get_metadata(path, topic)?;
+        if let Some(new_metadata) = self.solve_location(location)? {
+            self.store.reset_path(&old_metadata.topic, path, new_metadata.note_id)?;
+
+            Ok((old_metadata, new_metadata))
+        } else {
+            Err(From::from(ZtlnError::LocationError(location.to_string())))
+        }
+
     }
 
     pub fn get_paths_list(&mut self, topic: Option<&str>) -> Result<(String, Vec<String>)> {
@@ -202,7 +208,7 @@ impl<'a> Organization<'a> {
             .unwrap_or_else(|e| self.manage_store_error(e))
     }
 
-    fn solve_absolute(&mut self, captures: &mut CaptureMatches) -> Result<Option<NoteMetaData>> {
+    fn solve_absolute(&self, captures: &mut CaptureMatches) -> Result<Option<NoteMetaData>> {
         let cap = captures.next().unwrap();
         let subuuid = cap.name("subuuid").unwrap().as_str().to_string();
         let some_metadata = self.store.search_short_uuid(&subuuid)?;
@@ -272,6 +278,21 @@ impl<'a> Organization<'a> {
         };
 
         Ok(topic)
+    }
+
+    /**
+     * Return the metadata associated with the given path or the maybe given
+     * topic. 
+     */
+    fn get_metadata(&mut self, path: &str, topic: Option<&str>) -> Result<NoteMetaData> {
+        let metadata = if let Some(t) = topic {
+            self.solve_location(&format!("{}/{}", t, path))?
+                .ok_or_else(|| ZtlnError::PathDoesNotExist(t.to_string(), path.to_string()))?
+        } else {
+            self.solve_location(path)?
+                .ok_or_else(|| ZtlnError::LocationError(path.to_string()))?
+        };
+        Ok(metadata)
     }
 }
 
@@ -507,6 +528,28 @@ mod tests {
         orga.create_path("test", None).unwrap();
         let meta2 = orga.remove_path("test", None).unwrap();
         assert_eq!(meta1, meta2);
+
+        std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
+    }
+    #[test]
+    fn reset_path() {
+        let base_dir = "tmp/ztln_orga10";
+        let filename = "tmp/test10";
+        let topic = "topic1";
+        std::fs::write(filename, "This is test 10 content").unwrap();
+        let mut orga = Organization::new( Store::init(base_dir).unwrap());
+        assert!(orga.reset_path("whatever", Some("whatever"), "whatever").is_err());
+        assert!(orga.reset_path("whatever", None, "whatever").is_err());
+        orga.create_topic(topic).unwrap();
+        orga.set_current_topic(topic).unwrap();
+        assert!(orga.reset_path("whatever", None, "whatever").is_err());
+        let meta1 = orga.add_note(filename, None, None).unwrap();
+        let meta2 = orga.add_note(filename, None, None).unwrap();
+        orga.create_path("test", None).unwrap();
+        let (old_meta, new_meta) = orga.reset_path("test", None, "HEAD:-1").unwrap();
+        assert_eq!(meta1, new_meta);
+        assert_eq!(meta2, old_meta);
+        assert!(orga.reset_path("test", None, "whatever").is_err());
 
         std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
     }

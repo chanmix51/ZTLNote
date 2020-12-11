@@ -1,6 +1,6 @@
 [package]
 name = "ztln"
-version = "1.0.0-alpha2"
+version = "1.0.0-alpha3"
 authors = ["hubert.greg@gmail.com"]
 edition = "2018"
 
