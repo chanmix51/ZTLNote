@@ -1,1 +1,4 @@
+1.0.0-alpha3
+ * add `path reset` command
+ * add note count when `tag list`
 1.0.0-alpha1
