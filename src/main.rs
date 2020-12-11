@@ -262,7 +262,12 @@ struct ResetPathCommand {
 impl ResetPathCommand {
     fn execute(&self, orga: &mut Organization) -> Result<()> {
         let (old_metadata, new_metadata) = orga.reset_path(&self.path, self.topic.as_deref(), &self.location)?;
-        println!("path {} reset at {} (was {})", self.path, old_metadata, new_metadata);
+        println!(
+            "path {} reset at {} (was {})",
+            self.path,
+            &old_metadata.note_id.to_string()[..8],
+            &new_metadata.note_id.to_string()[..8]
+        );
         Ok(())
     }
 }
