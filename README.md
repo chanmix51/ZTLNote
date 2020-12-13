@@ -24,24 +24,25 @@ I have written ZtlNote with my understanding of the book in an effort of testing
     ztln command [arguments] [options]
 
  * info: list current topic/path with its date of last note creation/update
- * init: create an Organization and initialize the structure on disk. By default, the directory is taken from the `ZTLN_BASE_DIR` environment variable but it can be passed as parameter: `ztln --base-dir DIR init`
+ * init: create an Organization and initialize the structure on disk. By default, the directory is taken from the `ZTLN_BASE_DIR` environment variable but it can be passed as parameter: `ztln --base-dir DIR init`.
  * topic
-    * create: create a new topic. This also creates the `main` path in that topic (maybe a `--main-path` option may be added in the future to specify the name of the topic's default path) `ztln topic create TOPIC`
-    * list: list topics in the Organization (maybe none). `ztln topic list`
-    * default: set the default topic for operations. `ztln topic default TOPIC`
+    * create: create a new topic. This also creates the `main` path in that topic (maybe a `--main-path` option may be added in the future to specify the name of the topic's default path) `ztln topic create TOPIC`.
+    * list: list topics in the Organization (maybe none). `ztln topic list`.
+    * default: set the default topic for operations. `ztln topic default TOPIC`.
  * path
-    * branch: branch a path from a specified note `ztln path branch PATH [LOCATION]`
-    * list: list the existings paths in the current topic `ztln path list` or `ztln path list TOPIC`
-    * default: set the given path as default path `ztln path default PATH`
+    * branch: branch a path from a specified note `ztln path branch PATH [LOCATION]`.
+    * list: list the existings paths in the current topic `ztln path list` or `ztln path list TOPIC`.
+    * default: set the given path as default path `ztln path default PATH`.
     * remove: remove the given path `ztln path remove PATH`. There will be no warning if some notes are not in any path after this process.
+    * reset: set the given branch to point to another location. By using this command, some notes may not being on a path and even though they are not physically lost, will not be reachable anymore.
  * note:
     * add: create a note from an existing content file `ztln note add [FILENAME] [-p PATH] [-t TOPIC]`. If the filename is not given, the editor specified with the environment variable `$EDITOR` (default: vi) is launched. The file is then saved as a new note either at the default location (HEAD) or the specified topic/path.
     * show: show a note from a given location `ztln note show LOCATION`.
-    * reference: create a reference from one note to another `ztln note reference LOCATION LOCATION`
+    * reference: create a reference from one note to another `ztln note reference LOCATION LOCATION`.
  * tag
-    * add: tag a note with the given keyword `ztln tag add KEYWORD [LOCATION]`
-    * search: search all notes tagged with the given keyword `ztln tag search KEYWORD`
-    * list: list all the keywords stored in the index `ztln tag list`
+    * add: tag a note with the given keyword `ztln tag add KEYWORD [LOCATION]`.
+    * search: search all notes tagged with the given keyword `ztln tag search KEYWORD`.
+    * list: list all the keywords stored in the index `ztln tag list`.
 
 ### Location format
 
@@ -68,10 +69,9 @@ Here are other examples of locations:
 
  * `HEAD` or `main` or `main:-0` or `topic1/main` or `topic1/main:-0` → note D
  * `path1:-2` → note A
- * `path1:-4` → Nothing
- * `wrongpath` → Nothing
+ * `path1:-4` → nothing
+ * `wrongpath` → nothing
  * `wrong/address/format#` → Error
-
 
 ## Conception 
 
@@ -153,3 +153,4 @@ basedir
 ### Tag Store
 
 The tag store manages the `index` file which contains an association of UUID indexed by tags.
+
