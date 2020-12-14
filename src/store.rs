@@ -493,4 +493,29 @@ mod tests {
         assert_eq!(metadata1.note_id, uuid);
         fs::remove_dir_all(base_dir).unwrap();
     }
+
+    #[test]
+    fn update_note() {
+        let base_dir = "tmp/ztln_store10";
+        let store = Store::init(base_dir).unwrap();
+        let topic = "topicA";
+        store.create_topic(topic).unwrap();
+        store.set_current_topic(topic).unwrap();
+        let draft_note_path = Path::new("tmp/test10");
+        fs::write(draft_note_path, "This is a test 10 note").unwrap();
+        let metadata1 = store.add_note(topic, "main", draft_note_path.to_str().unwrap()).unwrap();
+        fs::write(draft_note_path, "This is an updated test 10 note").unwrap();
+        store.update_note_content(draft_note_path.to_str().unwrap(), metadata1.note_id).unwrap();
+        assert_eq!(
+            "This is an updated test 10 note",
+            fs::read_to_string(
+                Path::new(base_dir)
+                    .join("notes")
+                    .join(metadata1.note_id.to_string()
+                )
+            ).unwrap(),
+            "content file is up to date"
+        );
+        fs::remove_dir_all(base_dir).unwrap();
+    }
 }

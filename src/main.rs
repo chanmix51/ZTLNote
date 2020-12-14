@@ -3,7 +3,21 @@ use structopt::StructOpt;
 use std::process::Command;
 use rand::Rng; 
 use rand::distributions::Alphanumeric;
-use std::env;
+use std::{env, fs};
+
+fn generate_tmp_filepath() -> std::path::PathBuf {
+    env::temp_dir().join(rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(10)
+        .collect::<String>())
+}
+
+fn launch_editor(filename: &str) -> Result<()> {
+    Command::new(env::var_os("EDITOR").unwrap_or_else(|| From::from("vi".to_string())))
+        .arg(filename)
+        .status()?;
+    Ok(())
+}
 
 #[derive(Debug, StructOpt)]
 struct MainOpt {
@@ -280,6 +294,8 @@ enum NoteCommand {
     Reference(NoteReferenceCommand),
     #[structopt(about="display a note")]
     Show(NoteShowCommand),
+    #[structopt(about="edit an existing note")]
+    Edit(NoteEditCommand),
 }
 
 impl NoteCommand {
@@ -292,7 +308,29 @@ impl NoteCommand {
                             => cmd.execute(&mut orga),
             NoteCommand::Show(cmd)
                             => cmd.execute(&mut orga),
+            NoteCommand::Edit(cmd)
+                            => cmd.execute(&mut orga),
         }
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct NoteEditCommand {
+    location: String,
+}
+
+impl NoteEditCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        let metadata = orga.solve_location(&self.location)?
+            .ok_or_else(|| ZtlnError::LocationError(self.location.clone()))?;
+        let pathbuf = generate_tmp_filepath();
+        fs::write(&pathbuf, orga.get_note_content(metadata.note_id)?)
+            .map_err(|e| ZtlnError::Default(format!("Error while creating temp file '{}' ({:?}).",  pathbuf.to_str().unwrap(), e)))?;
+        let filename = pathbuf.to_str().unwrap(); // if it fails, it's a bug
+        launch_editor(filename)?;
+        orga.update_note_content(filename, metadata.note_id)?;
+        fs::remove_file(&pathbuf)?;
+        Ok(())
     }
 }
 
@@ -341,14 +379,9 @@ impl AddNoteCommand {
         let filename = match self.filename.as_ref() {
             Some(f) => f.clone(),
             None => {
-                let pathbuf = env::temp_dir().join(rand::thread_rng()
-                    .sample_iter(&Alphanumeric)
-                    .take(10)
-                    .collect::<String>()); 
+                let pathbuf = generate_tmp_filepath();
                 let f = pathbuf.to_str().unwrap();
-                Command::new(env::var_os("EDITOR").unwrap_or_else(|| From::from("vi".to_string())))
-                    .arg(f)
-                    .status()?;
+                launch_editor(f)?;
                 f.to_string()
             }
         };

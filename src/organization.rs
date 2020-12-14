@@ -172,6 +172,13 @@ impl<'a> Organization<'a> {
        self.store.get_note_content(uuid)
     }
 
+    pub fn update_note_content(&self, filename: &str, note_id: Uuid) -> Result<()> {
+        self.store.update_note_content(filename, note_id)
+            .unwrap_or_else(|e| self.manage_store_error(e));
+
+        Ok(())
+    }
+
     pub fn solve_location(&mut self, expr: &str) -> Result<Option<NoteMetaData>> {
         lazy_static! {
             static ref RELATIVE_LOC: Regex = Regex::new(r"^(?:(?P<topic>\w+)/)?(?P<path>\w+)(?::-(?P<modifier>\d+))?$").unwrap();
