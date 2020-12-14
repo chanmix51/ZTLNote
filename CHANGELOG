@@ -1,3 +1,5 @@
+1.0.0-alpha4
+ * add `note edit` command
 1.0.0-alpha3
  * add `path reset` command
  * add note count when `tag list`
