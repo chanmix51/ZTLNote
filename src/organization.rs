@@ -98,6 +98,9 @@ impl<'a> Organization<'a> {
         Ok(metadata)
     }
 
+    pub fn rename_path(&mut self, path: &str, new_path: &str, topic: Option<&str>) -> Result<()> {
+        Ok(())
+    }
     pub fn reset_path(&mut self, path: &str, topic: Option<&str>, location: &str) -> Result<(NoteMetaData, NoteMetaData)> {
         let old_metadata = self.get_metadata(path, topic)?;
         if let Some(new_metadata) = self.solve_location(location)? {
@@ -550,6 +553,27 @@ mod tests {
         assert_eq!(meta1, new_meta);
         assert_eq!(meta2, old_meta);
         assert!(orga.reset_path("test", None, "whatever").is_err());
+
+        std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
+    }
+    #[test]
+    fn rename_path() {
+        let base_dir = "tmp/ztln_orga11";
+        let filename = "tmp/test11";
+        let topic = "topic1";
+        std::fs::write(filename, "This is test 11 content").unwrap();
+        let mut orga = Organization::new( Store::init(base_dir).unwrap());
+        assert!(orga.rename_path("whatever", "whatever", Some("whatever")).is_err());
+        orga.create_topic(topic).unwrap();
+        orga.set_current_topic(topic).unwrap();
+        assert!(orga.rename_path("whatever", "whatever", Some(topic)).is_err());
+        orga.create_path("test", None).unwrap();
+        let res1 = orga.rename_path("test", "new_path", Some(topic));
+        assert!(res1.is_ok());
+        let path_list = orga.get_paths_list(Some(topic)).unwrap().1;
+        assert_eq!(1, path_list.len());
+        let path = path_list.iter().nth(1).unwrap();
+        assert_eq!("new_path", path);
 
         std::fs::remove_dir_all(std::path::Path::new(base_dir)).unwrap();
     }

@@ -1,13 +1,13 @@
 use ztln::*;
 use structopt::StructOpt;
 use std::process::Command;
-use rand::Rng; 
+use rand::Rng;
 use rand::distributions::Alphanumeric;
 use std::env;
 
 #[derive(Debug, StructOpt)]
 struct MainOpt {
-    #[structopt(long, env="ZTLN_BASE_DIR", help="organization directory path")]
+    #[structopt(long, env="ZTLN_BASE_DIR", about="organization directory path (or use ZTLN_BASE_DIR environment variable)")]
     base_dir: String,
     #[structopt(subcommand)]
     command: MainCommand,
@@ -158,6 +158,8 @@ enum SubPathCommand {
     Default(DefaultPathCommand),
     #[structopt(about="remove a path")]
     Remove(RemovePathCommand),
+    #[structopt(about="rename a path")]
+    Rename(RenamePathCommand),
     #[structopt(about="reset a path to another location")]
     Reset(ResetPathCommand),
 }
@@ -165,12 +167,15 @@ enum SubPathCommand {
 impl PathCommand {
     fn execute(&self, base_dir: &str) -> Result<()> {
         let mut orga = Organization::new(Store::attach(base_dir)?);
+
         match &self.subcommand {
             SubPathCommand::List(cmd)
                 => cmd.execute(&mut orga),
             SubPathCommand::Branch(cmd)
                 => cmd.execute(&mut orga),
             SubPathCommand::Default(cmd)
+                => cmd.execute(&mut orga),
+            SubPathCommand::Rename(cmd)
                 => cmd.execute(&mut orga),
             SubPathCommand::Remove(cmd)
                 => cmd.execute(&mut orga),
@@ -227,7 +232,7 @@ struct BranchPathCommand {
 impl BranchPathCommand {
     fn execute(&self, orga: &mut Organization) -> Result<()> {
         orga.create_path(&self.new_path, self.location.as_deref())?;
-        
+
         Ok(())
     }
 }
@@ -249,6 +254,25 @@ impl RemovePathCommand {
     }
 }
 
+#[derive(Debug, StructOpt)]
+struct RenamePathCommand {
+    #[structopt(help="the actual name of the path")]
+    old_path: String,
+    #[structopt(help="the new name of the path")]
+    new_path: String,
+    #[structopt(short, long, help="the name of the topic if not the default one")]
+    topic: Option<String>,
+}
+
+impl RenamePathCommand {
+    fn execute(&self, orga: &mut Organization) -> Result<()> {
+        /*
+        let metadata = orga.remove_path(&self.path, self.topic.as_deref())?;
+        println!("path '{}' renamed to '{}'", self.path, metadata.note_id.to_string()[..8].to_string());
+        */
+        Ok(())
+    }
+}
 #[derive(Debug, StructOpt)]
 struct ResetPathCommand {
     #[structopt(help="the name of the path")]
